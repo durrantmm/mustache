@@ -387,6 +387,7 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
     return flanking_reads
 
 def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_assembly, left_assembly, max_mapping_distance):
+    print(contig, site)
     keep_read_names = set()
     flanking_reads = []
 
@@ -401,7 +402,7 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
 
     # First the reads oriented toward the right site...
     for read in bam_file.fetch(contig, right_flank_start, right_flank_end):
-
+        print(read.query_name, read.reference_start, read.query_sequence)
         if (not read.is_reverse) and read.tlen != 0 and abs(read.tlen) <= max_mapping_distance and \
             read.reference_start + read.tlen >= right_flank_end:
 
@@ -443,7 +444,7 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
                 keep_read_names.add(read.query_name)
                 flanking_reads.append(read)
                 flanking_reads.append(read_mate)
-
+    print("Done with forward reads...")
     # Now the reads at the left site...
     for read in bam_file.fetch(contig, left_flank_start, left_flank_end):
 
