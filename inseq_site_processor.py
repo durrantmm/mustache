@@ -397,7 +397,7 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
     return flanking_reads
 
 def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_assembly, left_assembly, max_mapping_distance):
-    print(contig, site)
+
     forward_keep_read_names = set()
     reverse_keep_read_names = set()
 
