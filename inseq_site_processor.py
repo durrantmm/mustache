@@ -388,8 +388,11 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
 
 def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_assembly, left_assembly, max_mapping_distance):
     print(contig, site)
-    keep_read_names = set()
-    flanking_reads = []
+    forward_keep_read_names = set()
+    reverse_keep_read_names = set()
+
+    forward_flanking_reads = []
+    reverse_flanking_reads = []
 
     left_site = site[0]
     right_site = site[1]
@@ -402,23 +405,13 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
 
     # First the reads oriented toward the right site...
     for read in bam_file.fetch(contig, right_flank_start, right_flank_end):
-        print(read.query_name, read.reference_start, read.query_sequence)
+
         if (not read.is_reverse) and read.tlen != 0 and abs(read.tlen) <= max_mapping_distance and \
             read.reference_start + read.tlen >= right_flank_end:
-
-            read_mate = bam_file.mate(read)
 
             if is_right_softclipped(read):
 
                 site_clipped_read = clip_read_at_right_site(read, right_site)
-                align_score = alignment_tools.left_alignment_score(site_clipped_read, right_assembly)
-
-                if align_score > 0:
-                    continue
-
-            if is_right_softclipped(read_mate):
-
-                site_clipped_read = clip_read_at_right_site(read_mate, right_site)
                 align_score = alignment_tools.left_alignment_score(site_clipped_read, right_assembly)
 
                 if align_score > 0:
@@ -432,38 +425,20 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
                 if align_score > 0:
                     continue
 
-            if is_left_softclipped(read_mate):
+            if read.query_name not in forward_keep_read_names:
+                forward_keep_read_names.add(read.query_name)
+                forward_flanking_reads.append(read)
 
-                site_clipped_read = clip_read_at_left_site(read_mate, left_site)
-                align_score = alignment_tools.right_alignment_score(site_clipped_read, left_assembly)
 
-                if align_score > 0:
-                    continue
-
-            if read.query_name not in keep_read_names:
-                keep_read_names.add(read.query_name)
-                flanking_reads.append(read)
-                flanking_reads.append(read_mate)
-    print("Done with forward reads...")
     # Now the reads at the left site...
     for read in bam_file.fetch(contig, left_flank_start, left_flank_end):
 
         if read.is_reverse and read.tlen != 0 and abs(read.tlen) <= max_mapping_distance and \
             read.reference_end + read.tlen <= left_flank_start:
 
-            read_mate = bam_file.mate(read)
-
             if is_right_softclipped(read):
 
                 site_clipped_read = clip_read_at_right_site(read, right_site)
-                align_score = alignment_tools.left_alignment_score(site_clipped_read, right_assembly)
-
-                if align_score > 0:
-                    continue
-
-            if is_right_softclipped(read_mate):
-
-                site_clipped_read = clip_read_at_right_site(read_mate, right_site)
                 align_score = alignment_tools.left_alignment_score(site_clipped_read, right_assembly)
 
                 if align_score > 0:
@@ -477,20 +452,16 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
                 if align_score > 0:
                     continue
 
-            if is_left_softclipped(read_mate):
 
-                site_clipped_read = clip_read_at_left_site(read_mate, left_site)
-                align_score = alignment_tools.right_alignment_score(site_clipped_read, left_assembly)
+            if read.query_name not in reverse_keep_read_names:
+                reverse_keep_read_names.add(read.query_name)
+                reverse_flanking_reads.append(read)
 
-                if align_score > 0:
-                    continue
+    final_keep_read_names = forward_keep_read_names & reverse_keep_read_names
+    final_flanking_reads = [read for read in forward_flanking_reads+reverse_flanking_reads
+                            if read.query_name in final_keep_read_names]
 
-            if read.query_name not in keep_read_names:
-                keep_read_names.add(read.query_name)
-                flanking_reads.append(read)
-                flanking_reads.append(read_mate)
-
-    return flanking_reads
+    return final_flanking_reads
 
 
 def is_right_softclipped(read):
