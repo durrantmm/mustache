@@ -306,6 +306,8 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
     right_assembly_mapper = alignment_tools.QuickMapper(right_assembly)
     left_assembly_mapper = alignment_tools.QuickMapper(left_assembly)
 
+    keep_mate = set()
+
     # First the right site...
     # Starting with softclipped reads...
     for pu in bam_file.pileup(contig, right_site - 1, right_site, truncate=True):
@@ -324,9 +326,7 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
                         right_flank_start <= read.next_reference_start < right_flank_end and \
                         read.query_name not in keep_read_names:
 
-                        read_mate = bam_file.mate(read)
-                        keep_read_names.add(read_mate.query_name)
-                        flanking_reads.append(read_mate)
+                        keep_mate.add(read.query_name)
 
                     elif (not read.is_reverse) and (read.tlen == 0 or abs(read.tlen) > max_mapping_distance) and \
                         right_assembly_mapper.maps_to_reference(read.get_tag('MT')) and \
@@ -344,6 +344,13 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
 
             keep_read_names.add(read.query_name)
             flanking_reads.append(read)
+
+        elif not read.is_reverse and read.query_name in keep_mate and read.query_name not in keep_read_names:
+
+            keep_read_names.add(read.query_name)
+            flanking_reads.append(read)
+
+    keep_mate = set()
 
     # Now the left site
     # Starting with softclipped reads
@@ -363,9 +370,7 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
                         left_flank_start <= read.next_reference_start < left_flank_end and \
                         read.query_name not in keep_read_names:
 
-                        read_mate = bam_file.mate(read)
-                        keep_read_names.add(read_mate.query_name)
-                        flanking_reads.append(read_mate)
+                        keep_mate.add(read.query_name)
 
                     elif read.is_reverse and (read.tlen == 0 or abs(read.tlen) > max_mapping_distance) and \
                         left_assembly_mapper.maps_to_reference(read.get_tag('MT')) and \
@@ -380,6 +385,11 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
         if read.is_reverse and (read.tlen == 0 or abs(read.tlen) > max_mapping_distance) and \
             left_assembly_mapper.maps_to_reference(read.get_tag('MT')) and \
             read.query_name not in keep_read_names:
+
+            keep_read_names.add(read.query_name)
+            flanking_reads.append(read)
+
+        elif read.is_reverse and read.query_name in keep_mate and read.query_name not in keep_read_names:
 
             keep_read_names.add(read.query_name)
             flanking_reads.append(read)
