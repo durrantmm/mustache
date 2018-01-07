@@ -123,7 +123,7 @@ def find(bam_file, output_prefix, outdir, contig, start, stop, min_softclip_leng
 
     final_df = None
     for i in range(len(candidate_sites)):
-
+        click.echo('Processing site %d of %d' % (i+1, len(candidate_sites)))
         contig = candidate_sites.loc[i,'contig']
         site = (candidate_sites.loc[i,'left_site'], candidate_sites.loc[i,'right_site'])
         df = inseq_site_processor.process_candidate_site(bam_file, contig, site, flank_length,

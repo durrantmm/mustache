@@ -417,7 +417,7 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
     for read in bam_file.fetch(contig, right_flank_start, right_flank_end):
 
         if (not read.is_reverse) and read.tlen != 0 and abs(read.tlen) <= max_mapping_distance and \
-            read.reference_start + read.tlen >= right_flank_end:
+            read.reference_start + read.tlen >= right_flank_end and read.reference_start <= left_site:
 
             if is_right_softclipped(read):
 
@@ -444,7 +444,7 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
     for read in bam_file.fetch(contig, left_flank_start, left_flank_end):
 
         if read.is_reverse and read.tlen != 0 and abs(read.tlen) <= max_mapping_distance and \
-            read.reference_end + read.tlen <= left_flank_start:
+            read.reference_end + read.tlen <= left_flank_start and read.reference_end >= right_site:
 
             if is_right_softclipped(read):
 
