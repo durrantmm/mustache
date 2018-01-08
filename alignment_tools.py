@@ -97,10 +97,6 @@ class QuickMapper:
         return False
 
 
-        sys.exit()
-
-
-
 def left_alignment_score(read1, read2):
     score = 0
     for i in range(min([len(read1), len(read2)])):
@@ -110,6 +106,7 @@ def left_alignment_score(read1, read2):
             score -= 1
 
     return (score)
+
 
 def right_alignment_score(read1, read2):
     score = 0
@@ -124,3 +121,66 @@ def right_alignment_score(read1, read2):
             score -= 1
 
     return (score)
+
+
+def get_best_sliding_alignment(query_read, ref_read):
+    max_len = min(len(query_read), len(ref_read))
+    max_len_query, max_len_ref = False, False
+
+    if max_len == len(query_read):
+        max_len_query = True
+    else:
+        max_len_ref = True
+
+    best_score = -sys.maxsize
+    best_score_mismatches = 0
+    best_r_start = 0
+    best_r_end = 0
+
+    q_start = len(query_read) - 1
+    q_end = len(query_read)
+    r_start = 0
+    r_end = 1
+
+    reached_max = False
+
+    while q_start != q_end:
+        score = 0
+        mismatches = 0
+        for i in range(q_end - q_start):
+            if query_read[q_start:q_end][i] == ref_read[r_start:r_end][i]:
+                score += 1
+            else:
+                score -= 1
+                mismatches += 1
+
+        if score > best_score:
+            best_score = score
+            best_score_mismatches = mismatches
+            best_r_start = r_start
+            best_r_end = r_end
+
+        if q_end - q_start == max_len:
+            reached_max = True
+
+        if not reached_max:
+            q_start -= 1
+            r_end += 1
+
+        elif reached_max and max_len_query:
+            if r_end == len(ref_read):
+                r_start += 1
+                q_end -= 1
+            else:
+                r_start += 1
+                r_end += 1
+
+        elif reached_max and max_len_ref:
+            if q_start == 0:
+                r_start += 1
+                q_end -= 1
+            else:
+                q_start -= 1
+                q_end -= 1
+
+    return best_score, best_score_mismatches, best_r_start, best_r_end

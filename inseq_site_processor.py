@@ -36,8 +36,6 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     bam_path = bam_file.filename.decode('UTF-8')
     bam_file = pysam.AlignmentFile(bam_path, 'rb')
 
-
-
     # Beginning assembly
     click.echo('\tPerforming assembly...')
     left_softclipped_reads, right_softclipped_reads = get_softclipped_reads_at_site(bam_file, contig, site, revcomp_left=True)
@@ -58,6 +56,9 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     click.echo('\t\tLeft assembly:')
     click.echo(misc.wrap_string(left_inseq_assembly, newline_char='\t\t'))
     click.echo()
+
+    # Now merge the assemblies if possible...
+    right_inseq_assembly, left_inseq_assembly, merged_assembly = merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly)
 
     # Now get direct insertion sequence reads
     click.echo('\tGetting IS overlapping reads directly at the insertion sequence site...')
@@ -181,6 +182,17 @@ def unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_d
 
 
     return left_unmapped_reads, right_unmapped_reads
+
+
+def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overlap_score = 5):
+    print(right_inseq_assembly, left_inseq_assembly)
+    best_score, best_score_mismatches, best_r_start, best_r_end = alignment_tools.get_best_sliding_alignment(right_inseq_assembly, left_inseq_assembly)
+
+    merged_assembly = None
+    if best_score >= min_overlap_score:
+        print("They merged!")
+        sys.exit()
+    return left_inseq_assembly, right_inseq_assembly, merged_assembly
 
 
 def get_direct_inseq_reads(bam_file, contig, site, right_assembly, left_assembly):
