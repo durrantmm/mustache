@@ -64,6 +64,7 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
         click.echo(misc.wrap_string(merged_assembly, newline_char='\t\t'))
     else:
         click.echo('\t\tThe assembly did not merge...')
+    click.echo()
 
     # Now get direct insertion sequence reads
     click.echo('\tGetting IS overlapping reads directly at the insertion sequence site...')
@@ -196,7 +197,7 @@ def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overla
     if best_score >= min_overlap_score:
         print("They merged!")
         sys.exit()
-    return left_inseq_assembly, right_inseq_assembly, merged_assembly
+    return right_inseq_assembly, left_inseq_assembly, merged_assembly
 
 
 def get_direct_inseq_reads(bam_file, contig, site, right_assembly, left_assembly):
