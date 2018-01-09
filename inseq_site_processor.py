@@ -7,11 +7,15 @@ from collections import OrderedDict
 import click
 import numpy as np
 import pandas as pd
+from os.path import join
+from difflib import SequenceMatcher
 pd.set_option('display.height', 1000)
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
+from Bio.pairwise2 import format_alignment
+from Bio import pairwise2
 
 
 def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_distance, outdir, output_prefix):
@@ -19,17 +23,20 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
         ('contig', [contig]),
         ('left_site', [site[0]]),
         ('right_site', [site[1]]),
+        ('direct_repeat_length', site[1]-site[0]-2),
         ('flank_length', [flank_length]),
-        ('direct_inseq_read_count', None),
-        ('direct_ancestral_read_count', None),
-        ('direct_inseq_freq', None),
-        ('flanking_inseq_read_count', None),
-        ('flanking_ancestral_read_count', None),
-        ('flanking_inseq_freq', None),
-        ('right_assembly_length', None),
-        ('left_assembly_length', None),
-        ('right_assembly', None),
-        ('left_assembly', None)
+        ('direct_inseq_read_count', np.nan),
+        ('direct_ancestral_read_count', np.nan),
+        ('direct_inseq_freq', np.nan),
+        ('flanking_inseq_read_count', np.nan),
+        ('flanking_ancestral_read_count', np.nan),
+        ('flanking_inseq_freq', np.nan),
+        ('right_assembly_length', np.nan),
+        ('left_assembly_length', np.nan),
+        ('merged_assembly_length', np.nan),
+        ('right_assembly', np.nan),
+        ('left_assembly', np.nan),
+        ('merged_assembly', np.nan)
     ])
 
     site_name = contig + ':' + str(site[0]) + '-' + str(site[1])
@@ -53,8 +60,7 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
 
     # Assembling the left flank
     left_inseq_assembly = misc.revcomp(flank_assembler.assemble_flank(left_softclipped_reads, left_unmapped_reads))
-    out_dict['left_assembly'] = [left_inseq_assembly]
-    out_dict['left_assembly_length'] = [len(left_inseq_assembly)]
+
     click.echo('\t\tLeft assembly:')
     click.echo(misc.wrap_string(left_inseq_assembly, newline_char='\t\t'))
     click.echo()
@@ -64,9 +70,16 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     if merged_assembly:
         click.echo('\t\tMerged assembly:')
         click.echo(misc.wrap_string(merged_assembly, newline_char='\t\t'))
+        out_dict['merged_assembly'] = [merged_assembly]
+        out_dict['merged_assembly_length'] = [len(merged_assembly)]
     else:
         click.echo('\t\tThe assembly did not merge...')
     click.echo()
+
+    out_dict['right_assembly'] = [right_inseq_assembly]
+    out_dict['right_assembly_length'] = [len(right_inseq_assembly)]
+    out_dict['left_assembly'] = [left_inseq_assembly]
+    out_dict['left_assembly_length'] = [len(left_inseq_assembly)]
 
     # Now get direct insertion sequence reads
     click.echo('\tGetting IS overlapping reads directly at the insertion sequence site...')
@@ -74,7 +87,7 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     out_dict['direct_inseq_read_count'] = [len(direct_inseq_reads)]
     click.echo('\t\t%d IS overlapping reads directly at insertion site' % len(direct_inseq_reads))
     click.echo('\t\tWriting direct IS reads to file...')
-    output.write_site_reads(direct_inseq_reads, bam_file, outdir, output_prefix, site_name+'.direct_inseq')
+    output.write_site_reads(direct_inseq_reads, bam_file, join(outdir, output_prefix + '.direct_inseq_bam'), output_prefix, site_name+'.direct_inseq')
     del direct_inseq_reads
     click.echo()
 
@@ -84,7 +97,7 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     out_dict['direct_ancestral_read_count'] = [len(direct_ancestral_reads)]
     click.echo('\t\t%d ancestral reads directly at insertion site' % len(direct_ancestral_reads))
     click.echo('\t\tWriting direct ancestral reads to file...')
-    output.write_site_reads(direct_ancestral_reads, bam_file, outdir, output_prefix, site_name + '.direct_ancestral')
+    output.write_site_reads(direct_ancestral_reads, bam_file, join(outdir, output_prefix + '.direct_ancestral_bam'), output_prefix, site_name + '.direct_ancestral')
     del direct_ancestral_reads
     click.echo()
 
@@ -105,7 +118,7 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     out_dict['flanking_inseq_read_count'] = [len(flanking_inseq_reads)]
     click.echo('\t\t%d reads flanking the insertion site' % len(flanking_inseq_reads))
     click.echo('\t\tWriting flanking IS reads to file...')
-    output.write_site_reads(flanking_inseq_reads, bam_file, outdir, output_prefix, site_name + '.flanking_inseq')
+    output.write_site_reads(flanking_inseq_reads, bam_file, join(outdir, output_prefix + '.flanking_inseq_bam'), output_prefix, site_name + '.flanking_inseq')
     del flanking_inseq_reads
     click.echo()
 
@@ -116,7 +129,7 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     out_dict['flanking_ancestral_read_count'] = [len(flanking_ancestral_reads)]
     click.echo('\t\t%d ancestral reads flanking the insertion site' % len(flanking_ancestral_reads))
     click.echo('\t\tWriting flanking ancestral reads to file...')
-    output.write_site_reads(flanking_ancestral_reads, bam_file, outdir, output_prefix, site_name + '.flanking_ancestral')
+    output.write_site_reads(flanking_ancestral_reads, bam_file, join(outdir, output_prefix + '.flanking_ancestral_bam'), output_prefix, site_name + '.flanking_ancestral')
     del flanking_ancestral_reads
     click.echo()
 
@@ -198,21 +211,61 @@ def unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_d
     return left_unmapped_reads, right_unmapped_reads
 
 
-def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overlap_score = 5):
+def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overlap_score = 5, mismatch_prop= 1.0 / 6.0):
     align_info = alignment_tools.get_best_sliding_alignment(right_inseq_assembly, left_inseq_assembly)
     best_score, best_score_mismatches, best_r_start, best_r_end, best_q_start, best_q_end = align_info
+    align_length = best_r_end - best_r_start
 
     merged_assembly = None
-    if best_score >= min_overlap_score:
-        print(best_score)
-        print(best_q_start, best_q_end)
 
-        print(right_inseq_assembly)
-        print(left_inseq_assembly[best_r_start: best_r_end])
-        print(best_r_start, best_r_end)
+    if best_score >= min_overlap_score and best_score_mismatches / float(align_length) < mismatch_prop:
+        click.echo("They merged!")
+
+        alignments = pairwise2.align.localms(right_inseq_assembly, left_inseq_assembly, 1, -1, -5, -5)
+        print(format_alignment(*alignments[0]))
+
+        if best_q_start > 0 and best_q_end == len(right_inseq_assembly) and \
+            best_r_start == 0 and best_r_end != len(left_inseq_assembly):
+            # XXXXXXXXXXXX
+            #        XXXXXXXXXXXX
+            # XXXXXXXXXXXXXXXXXXX
+            merged_assembly = right_inseq_assembly + left_inseq_assembly[best_r_end:]
+
+        elif best_q_start == 0 and best_q_end == len(right_inseq_assembly) and \
+            best_r_start == 0 and best_r_end == len(left_inseq_assembly):
+            # XXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXX
+            merged_assembly = right_inseq_assembly
+
+        elif best_q_start == 0 and best_q_end == len(right_inseq_assembly) and \
+            best_r_start > 0 and best_r_end != len(left_inseq_assembly):
+            #       XXXXXXXXX
+            # XXXXXXXXXXXXXXXXXXX
+            #       XXXXXXXXXXXXX
+            merged_assembly = left_inseq_assembly[best_r_start:]
+
+        elif best_q_start > 0 and best_q_end != len(right_inseq_assembly) and \
+            best_r_start == 0 and best_r_end == len(left_inseq_assembly):
+            # XXXXXXXXXXXXXXXXXXX
+            #      XXXXXXXXX
+            # XXXXXXXXXXXXXX
+            merged_assembly = right_inseq_assembly[:best_q_end]
+
+        elif best_q_start == 0 and best_q_end != len(right_inseq_assembly) and \
+            best_r_start > 0 and best_r_end == len(left_inseq_assembly):
+            #        XXXXXXXXXXXX
+            # XXXXXXXXXXXX
+            #        XXXXX
+            merged_assembly = right_inseq_assembly[best_q_start:best_q_end]
+        else:
+            print("I MISSED SOMETHING")
+            sys.exit()
+
+        right_inseq_assembly = merged_assembly
+        left_inseq_assembly = merged_assembly
 
 
-        print("They merged!")
     return right_inseq_assembly, left_inseq_assembly, merged_assembly
 
 
@@ -520,7 +573,6 @@ def get_first_unclipped_reference_position(read):
             return read.reference_start + 1
     else:
         return read.reference_start
-
 
 def clip_read_at_right_site(read, right_site):
     clip_length = get_right_softclip_length(read) + get_last_unclipped_reference_position(read) - right_site + 1

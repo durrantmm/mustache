@@ -55,7 +55,7 @@ def align(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
     if not reformatted:
         click.echo("Fatal error: SAM file reformatting failed.")
         sys.exit()
-    click.echo("SAM file successfully reformated...\n")
+    click.echo("SAM file successfully reformatted...\n")
 
     click.echo("Sorting the BAM file by chromosomal location...")
     sorted = bwa_tools.samtools_sort_coordinate(tmp_formatted_bam, out_bam, delete_in_bam=not keep_tmp_files)
@@ -139,14 +139,36 @@ def find(bam_file, output_prefix, outdir, contig, start, stop, min_softclip_leng
             final_df = df
         else:
             final_df = pd.concat([final_df, df])
+    click.echo('Finished processing all sites...\n')
 
+    click.echo('Merging BAM files...')
+    output.merge_bams_in_directory(join(outdir, output_prefix + '.direct_inseq_bam'),
+                                   join(outdir, output_prefix + '.all_direct_inseq.bam'))
+    output.merge_bams_in_directory(join(outdir, output_prefix + '.direct_ancestral_bam'),
+                                   join(outdir, output_prefix + '.all_direct_ancestral.bam'))
+    output.merge_bams_in_directory(join(outdir, output_prefix + '.flanking_inseq_bam'),
+                                   join(outdir, output_prefix + '.all_flanking_inseq.bam'))
+    output.merge_bams_in_directory(join(outdir, output_prefix + '.flanking_ancestral_bam'),
+                                   join(outdir, output_prefix + '.all_flanking_ancestral.bam'))
+    click.echo('All BAM files merged...\n')
+
+    click.echo('Writing statistics to CSV file...')
     output.write_final_dataframe(final_df, outdir, output_prefix)
+    click.echo('Finished writing statistics...\n')
 
+    click.echo('Writing sequences to FASTA file...')
+    output.stats_dataframe_to_fasta(final_df, outdir, output_prefix)
+    click.echo('Finished writing FASTA...\n')
 
+    click.echo('Writing sequences to FASTA file...')
+    output.stats_dataframe_to_fasta(final_df, outdir, output_prefix)
+    click.echo('Finished writing FASTA...\n')
+
+    click.echo('Writing sites to GFF3 file...')
+    output.stats_dataframe_to_gff3(final_df, outdir, output_prefix)
+    click.echo('Finished writing GFF3...\n')
 
 
 
 cli.add_command(align)
 cli.add_command(find)
-
-
