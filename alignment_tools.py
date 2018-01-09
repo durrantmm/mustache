@@ -104,7 +104,7 @@ class QuickMapper:
         kmers_match = False
         best_mapping_sequence = None
         best_mapping_positions = None
-        total_matching_kmers = 0
+        total_matching_kmers = -1
 
         for sequence in [forward_seq, reverse_seq]:
             num_matching_kmers = 0
