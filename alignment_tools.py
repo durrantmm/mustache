@@ -146,7 +146,8 @@ class QuickMapper:
                     sequence_end = i+1+self.kmer_size
                     reference_end = best_mapping_positions[i][0] + 1 + self.kmer_size
                     break
-
+            if not sequence_start or not sequence_end or not reference_start or not reference_end:
+                return False
             # Now check that the sequence is well contained within the sequencing reference inseq.
             if sequence_start > 0 and reference_start == 0:
                 return False
