@@ -17,8 +17,13 @@ def calculate_flank_length(bam_file, max_mapping_distance, flank_length_percenti
     mean = np.mean(fragment_lengths)
     std = np.std(fragment_lengths)
 
-    flank_length = int(norm.ppf(flank_length_percentile, mean, std))
+    if std == 0:
+        flank_length = mean
+    else:
+        flank_length = int(norm.ppf(flank_length_percentile, mean, std))
+
     return flank_length
+
 
 def revcomp(read):
     reversed_seq = ''
@@ -34,6 +39,7 @@ def revcomp(read):
         else:
             reversed_seq += l
     return reversed_seq
+
 
 def wrap_string(string, wrap_cutoff=70, newline_char=''):
     out = ''

@@ -1,7 +1,7 @@
 import pysam
 from os.path import join
 from snakemake import shell
-from bowtie2_aligner import samtools_sort, samtools_index
+from bwa_tools import samtools_sort_coordinate, samtools_index
 import sys
 from os.path import isfile
 
@@ -16,7 +16,7 @@ def write_site_reads(reads, bam_file, outdir, output_prefix, suffix=None, sort_a
             tmp_out_bam.write(r)
         tmp_out_bam.close()
 
-        samtools_sort(tmp_outfile_name, outfile_name, delete_in_bam=True)
+        samtools_sort_coordinate(tmp_outfile_name, outfile_name, delete_in_bam=True)
         samtools_index(outfile_name)
     else:
         out_bam = pysam.AlignmentFile(outfile_name, 'wb', template=bam_file)

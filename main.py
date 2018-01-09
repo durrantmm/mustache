@@ -1,7 +1,7 @@
 import sys
 import click
 import pysam
-import bowtie2_aligner, identify_candidate_sites, inseq_site_processor, misc
+import bwa_tools, identify_candidate_sites, inseq_site_processor, misc
 from os.path import join, basename, dirname, isdir, isfile
 import os, sys
 import pandas as pd
@@ -11,7 +11,6 @@ from multiprocessing import Pool
 @click.group()
 def cli():
     pass
-
 
 @click.command()
 @click.argument('fastq1', type=click.Path(exists=True))
@@ -24,11 +23,11 @@ def align(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
     click.echo("Performing alignment with bowtie2...")
 
     click.echo("Checking if genome is indexed...")
-    if bowtie2_aligner.genome_is_indexed(genome):
+    if bwa_tools.genome_is_indexed(genome):
         click.echo("Genome is already indexed, skipping...")
     else:
         click.echo("Indexing Genome...")
-        genome_indexed = bowtie2_aligner.index_genome(genome)
+        genome_indexed = bwa_tools.index_genome(genome)
         if not genome_indexed:
             click.echo("Fatal error: Genome could not be indexed. Is it in FASTA format?")
             sys.exit()
@@ -36,29 +35,37 @@ def align(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
 
     click.echo("Performing the alignment with bowtie2...")
     tmp_sam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1])+'.sam.tmp')
-    aligned = bowtie2_aligner.align_to_genome(fastq1, fastq2, genome, tmp_sam, threads)
+    aligned = bwa_tools.align_to_genome(fastq1, fastq2, genome, tmp_sam, threads)
     if not aligned:
         click.echo("Fatal error: Alignment seemed to have failed.")
         sys.exit()
     click.echo("Initial alignment completed successfully...\n")
 
+    click.echo("Removing secondary alignmnents...")
+    tmp_cleaned_bam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1]) + '.cleaned.bam.tmp')
+    sorted_query_name = bwa_tools.samtools_remove_secondary_alignments(tmp_sam, tmp_cleaned_bam, delete_in_bam=not keep_tmp_files)
+    if not sorted_query_name:
+        click.echo("Fatal error: Failed to remove secondary alignments...")
+        sys.exit()
+    click.echo("Successfully removed secondary alignments...\n")
+
     click.echo("Formatting bam file for use by mustache...")
-    tmp_bam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1]) + '.bam.tmp')
-    reformatted = bowtie2_aligner.format_for_mustache(tmp_sam, tmp_bam, delete_in_sam=not keep_tmp_files)
+    tmp_formatted_bam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1]) + '.formatted.bam.tmp')
+    reformatted = bwa_tools.format_for_mustache(tmp_cleaned_bam, tmp_formatted_bam, delete_in_sam=not keep_tmp_files)
     if not reformatted:
         click.echo("Fatal error: SAM file reformatting failed.")
         sys.exit()
     click.echo("SAM file successfully reformated...\n")
 
     click.echo("Sorting the BAM file by chromosomal location...")
-    sorted = bowtie2_aligner.samtools_sort(tmp_bam, out_bam, delete_in_bam=not keep_tmp_files)
+    sorted = bwa_tools.samtools_sort_coordinate(tmp_formatted_bam, out_bam, delete_in_bam=not keep_tmp_files)
     if not sorted:
         click.echo("Fatal error: Failed to sort the BAM file.")
         sys.exit()
     click.echo("BAM file successfully sorted...\n")
 
     click.echo("Index the sorted BAM file...")
-    indexed = bowtie2_aligner.samtools_index(out_bam)
+    indexed = bwa_tools.samtools_index(out_bam)
     if not indexed:
         click.echo("Fatal error: Failed to index sorted BAM file")
         sys.exit()

@@ -1,5 +1,6 @@
 import sys
 import misc
+from Bio import pairwise2
 
 class QuickMapper:
 
@@ -96,6 +97,74 @@ class QuickMapper:
 
         return False
 
+    def maps_within_reference(self, seq):
+        forward_seq = seq
+        reverse_seq = misc.revcomp(seq)
+
+        kmers_match = False
+        best_mapping_sequence = None
+        best_mapping_positions = None
+        total_matching_kmers = 0
+
+        for sequence in [forward_seq, reverse_seq]:
+            num_matching_kmers = 0
+            mapping_positions = []
+
+            kmers = list(self.kmer_composition(sequence))
+
+            for kmer in kmers:
+                if kmer in self.kmer_dict:
+                    mapping_positions.append(self.kmer_dict[kmer]['positions'])
+                    num_matching_kmers += 1
+                else:
+                    mapping_positions.append([])
+
+            if kmers_match:
+                if num_matching_kmers > total_matching_kmers:
+                    best_mapping_sequence = sequence
+                    best_mapping_positions = mapping_positions
+                    total_matching_kmers = num_matching_kmers
+
+            elif num_matching_kmers > 0:
+                best_mapping_sequence = sequence
+                best_mapping_positions = mapping_positions
+                total_matching_kmers = num_matching_kmers
+                kmers_match = True
+
+        if kmers_match:
+
+            sequence_start, sequence_end = None, None
+            reference_start, reference_end = None, None
+
+            for i in range(len(best_mapping_positions)):
+                if len(best_mapping_positions[i]) == 1:
+                    sequence_start = i
+                    reference_start = best_mapping_positions[i][0]
+                    break
+            for i in reversed(range(len(best_mapping_positions))):
+                if len(best_mapping_positions[i]) == 1:
+                    sequence_end = i+1+self.kmer_size
+                    reference_end = best_mapping_positions[i][0] + 1 + self.kmer_size
+                    break
+
+            # Now check that the sequence is well contained within the sequencing reference inseq.
+            if sequence_start > 0 and reference_start == 0:
+                return False
+
+            if len(best_mapping_sequence) - sequence_end > 0 and len(self.reference_sequence) - reference_end == 0:
+                return False
+
+            # Now continue on to check the score of the alignment
+            clipped_sequence = best_mapping_sequence[sequence_start:sequence_end]
+            clipped_reference = self.reference_sequence[reference_start:reference_end]
+
+            left_score = left_alignment_score(clipped_sequence, clipped_reference)
+            right_score = right_alignment_score(clipped_sequence, clipped_reference)
+
+            if max([left_score, right_score]) >= self.min_alignment_score:
+                return True
+
+        return False
 
 def left_alignment_score(read1, read2):
     score = 0
@@ -136,6 +205,8 @@ def get_best_sliding_alignment(query_read, ref_read):
     best_score_mismatches = 0
     best_r_start = 0
     best_r_end = 0
+    best_q_start = 0
+    best_q_end = 0
 
     q_start = len(query_read) - 1
     q_end = len(query_read)
@@ -159,6 +230,8 @@ def get_best_sliding_alignment(query_read, ref_read):
             best_score_mismatches = mismatches
             best_r_start = r_start
             best_r_end = r_end
+            best_q_start = q_start
+            best_q_end = q_end
 
         if q_end - q_start == max_len:
             reached_max = True
@@ -183,4 +256,4 @@ def get_best_sliding_alignment(query_read, ref_read):
                 q_start -= 1
                 q_end -= 1
 
-    return best_score, best_score_mismatches, best_r_start, best_r_end
+    return best_score, best_score_mismatches, best_r_start, best_r_end, best_q_start, best_q_end
