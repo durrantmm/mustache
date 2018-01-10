@@ -18,16 +18,17 @@ from Bio.pairwise2 import format_alignment
 from Bio import pairwise2
 
 
-def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_distance, outdir, output_prefix):
+def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_distance, max_softclip_length, average_read_length, outdir, output_prefix):
     out_dict = OrderedDict([
         ('contig', [contig]),
         ('left_site', [site[0]]),
         ('right_site', [site[1]]),
-        ('direct_repeat_length', site[1]-site[0]-2),
+        ('direct_repeat_length', [site[1]-site[0]-1]),
         ('flank_length', [flank_length]),
         ('direct_inseq_read_count', np.nan),
         ('direct_ancestral_read_count', np.nan),
         ('direct_inseq_freq', np.nan),
+        ('adj_direct_inseq_freq', np.nan),
         ('flanking_inseq_read_count', np.nan),
         ('flanking_ancestral_read_count', np.nan),
         ('flanking_inseq_freq', np.nan),
@@ -88,7 +89,6 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     click.echo('\t\t%d IS overlapping reads directly at insertion site' % len(direct_inseq_reads))
     click.echo('\t\tWriting direct IS reads to file...')
     output.write_site_reads(direct_inseq_reads, bam_file, join(outdir, output_prefix + '.direct_inseq_bam'), output_prefix, site_name+'.direct_inseq')
-    del direct_inseq_reads
     click.echo()
 
     # Now get unique site ancestral reads
@@ -98,19 +98,43 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     click.echo('\t\t%d ancestral reads directly at insertion site' % len(direct_ancestral_reads))
     click.echo('\t\tWriting direct ancestral reads to file...')
     output.write_site_reads(direct_ancestral_reads, bam_file, join(outdir, output_prefix + '.direct_ancestral_bam'), output_prefix, site_name + '.direct_ancestral')
-    del direct_ancestral_reads
     click.echo()
 
-    # Quickly calculate the direct inseq frequency
+    # Estimate the direct inseq frequency
     click.echo('\tCalculating the direct IS frequency...')
-    total_direct_reads = float(out_dict['direct_inseq_read_count'][0] + out_dict['direct_ancestral_read_count'][0])
-    if total_direct_reads > 0:
-        direct_inseq_freq = out_dict['direct_inseq_read_count'][0] / total_direct_reads
+    click.echo('\t\tFirst caculating the raw direct IS frequency...')
+    total_direct_reads = len(direct_inseq_reads) + len(direct_ancestral_reads)
+    if total_direct_reads  > 0:
+        raw_direct_ineq_freq = len(direct_inseq_reads) / total_direct_reads
     else:
-        direct_insq_freq = np.nan
-    out_dict['direct_inseq_freq'] = [direct_inseq_freq]
-    click.echo('\t\tThe direct IS frequency is %f' % direct_inseq_freq)
+        raw_direct_ineq_freq = np.nan
+    out_dict['direct_inseq_freq'] = [raw_direct_ineq_freq]
+    click.echo('\t\tThe raw direct IS frequency is %f\n' % raw_direct_ineq_freq)
+
+    click.echo('\t\tNow caculating the adjusted direct IS frequency...')
+    click.echo('\t\tUsing a maximum softclip length of %d...' % max_softclip_length)
+    direct_repeat_length = out_dict['direct_repeat_length'][0]
+    click.echo('\t\tUsing direct repeat length of %d...' % direct_repeat_length)
+    click.echo('\t\tUsing average read length of %d...' % average_read_length)
+    click.echo('\t\tCalculating insertion sequence read count scaling factor...')
+    inseq_scaling_factor = calculate_direct_inseq_scaling_factor(len(direct_inseq_reads), average_read_length, max_softclip_length)
+    click.echo('\t\tThe scaling factor is %f...' % inseq_scaling_factor)
+    click.echo('\t\tCalculating ancestral read count scaling factor...')
+    ancestral_scaling_factor = calculate_direct_ancestral_scaling_factor(len(direct_ancestral_reads), average_read_length, direct_repeat_length)
+    click.echo('\t\tThe scaling factor is %f...' % ancestral_scaling_factor)
+    adjusted_inseq_read_count = len(direct_inseq_reads) + inseq_scaling_factor*4*(average_read_length-max_softclip_length)
+    adjusted_ancestral_read_count = 2*len(direct_ancestral_reads) + ancestral_scaling_factor*4*(direct_repeat_length+1)
+    adj_total_read_count = adjusted_inseq_read_count + adjusted_ancestral_read_count
+
+    if adj_total_read_count  > 0:
+        adj_direct_inseq_freq = adjusted_inseq_read_count / adj_total_read_count
+    else:
+        adj_direct_inseq_freq = np.nan
+    out_dict['adj_direct_inseq_freq'] = [adj_direct_inseq_freq]
+    click.echo('\t\tThe adjusted direct IS frequency is %f' % adj_direct_inseq_freq)
     click.echo()
+    del direct_ancestral_reads
+    del direct_inseq_reads
 
     # Now get reads that flank the insertion site and map to the insertion
     click.echo('\tGetting reads that flank the IS site, and map to the relevant sequence...')
@@ -211,7 +235,7 @@ def unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_d
     return left_unmapped_reads, right_unmapped_reads
 
 
-def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overlap_score = 5, mismatch_prop= 1.0 / 6.0):
+def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overlap_score = 10, mismatch_prop= 1.0 / 10.0):
     align_info = alignment_tools.get_best_sliding_alignment(right_inseq_assembly, left_inseq_assembly)
     best_score, best_score_mismatches, best_r_start, best_r_end, best_q_start, best_q_end = align_info
     align_length = best_r_end - best_r_start
@@ -438,7 +462,6 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
     return flanking_reads
 
 
-
 def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_assembly, left_assembly, max_mapping_distance):
 
     forward_keep_read_names = set()
@@ -491,6 +514,20 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
 
     return final_flanking_reads
 
+
+def calculate_direct_inseq_scaling_factor(n_inseq_reads, average_read_length, max_softclip_length):
+    numerator = float(n_inseq_reads)
+    denominator = float(4*average_read_length - 4*(average_read_length-max_softclip_length))
+    scaling_factor =  numerator / denominator
+    return scaling_factor
+
+
+def calculate_direct_ancestral_scaling_factor(n_inseq_reads, average_read_length, direct_repeat_length):
+    numerator = float(n_inseq_reads)
+    denominator = 2*(average_read_length - direct_repeat_length - 1)
+    scaling_factor =  numerator / denominator
+
+    return scaling_factor
 
 def is_right_softclipped(read):
     if read.cigartuples[-1][0] == 4:

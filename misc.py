@@ -24,6 +24,17 @@ def calculate_flank_length(bam_file, max_mapping_distance, flank_length_percenti
 
     return flank_length
 
+def calculate_average_read_length(bam_file, max_reads = 100000):
+    read_lengths = []
+    count = 0
+    for read in bam_file.fetch():
+        if count > max_reads:
+            break
+        read_lengths.append(len(read.query_sequence))
+
+    average = int(np.mean(read_lengths))
+
+    return average
 
 def revcomp(read):
     reversed_seq = ''

@@ -52,14 +52,14 @@ def stats_dataframe_to_fasta(df, outdir, output_prefix):
 
     for row in range(len(df)):
 
-        if np.isnan(df.loc[row, 'merged_assembly_length']):
+        if np.isnan(df.iloc[row,]['merged_assembly_length']):
 
-            contig = df.loc[row, 'contig']
-            left_site = df.loc[row, 'left_site']
-            right_site = df.loc[row, 'right_site']
+            contig = df.iloc[row,]['contig']
+            left_site = df.iloc[row,]['left_site']
+            right_site = df.iloc[row,]['right_site']
 
-            right_assembly = df.loc[row, 'right_assembly']
-            left_assembly = df.loc[row, 'left_assembly']
+            right_assembly = df.iloc[row,]['right_assembly']
+            left_assembly = df.iloc[row,]['left_assembly']
 
             right_assembly_name = '_'.join(map(str, [contig, left_site, right_site, 'right']))
             left_assembly_name = '_'.join(map(str, [contig, left_site, right_site, 'left']))
@@ -72,13 +72,13 @@ def stats_dataframe_to_fasta(df, outdir, output_prefix):
             out_sequences.append(right_assembly_record)
             out_sequences.append(left_assembly_record)
 
-        elif df.loc[row, 'merged_assembly_length'] != np.nan:
+        elif df.iloc[row,]['merged_assembly_length'] != np.nan:
 
-            contig = df.loc[row, 'contig']
-            left_site = df.loc[row, 'left_site']
-            right_site = df.loc[row, 'right_site']
+            contig = df.iloc[row,]['contig']
+            left_site = df.iloc[row,]['left_site']
+            right_site = df.iloc[row,]['right_site']
 
-            merged_assembly = df.loc[row, 'merged_assembly']
+            merged_assembly = df.iloc[row,]['merged_assembly']
 
             merged_assembly_name = '_'.join(map(str, [contig, left_site, right_site, 'merged']))
 
@@ -99,13 +99,13 @@ def stats_dataframe_to_gff3(df, outdir, output_prefix):
 
         for row in range(len(df)):
 
-            contig = df.loc[row, 'contig']
-            left_site = df.loc[row, 'left_site']
-            right_site = df.loc[row, 'right_site']
+            contig = df.iloc[row,]['contig']
+            left_site = df.iloc[row,]['left_site']
+            right_site = df.iloc[row,]['right_site']
 
-            right_assembly = df.loc[row, 'right_assembly']
-            left_assembly = df.loc[row, 'left_assembly']
-            merged_assembly = df.loc[row, 'merged_assembly']
+            right_assembly = df.iloc[row,]['right_assembly']
+            left_assembly = df.iloc[row,]['left_assembly']
+            merged_assembly = df.iloc[row,]['merged_assembly']
 
             name = 'insertion_site-' + '_'.join(map(str, [contig, left_site, right_site]))
 

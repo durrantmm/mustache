@@ -87,10 +87,11 @@ def align(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
 @click.option('--max_mapping_distance', default=3000, help="The maximum distance between two pairs to be considered concordantly mapped.")
 @click.option('--flank_length', type=int, help="Specify flank length if desired. Otherwise, flank_length_percentile will be used to calculate flank length from the bam file.")
 @click.option('--flank_length_percentile', default=0.999, help="Assuming normally distributed fragment size, choose the percentile used as length cutoff.")
+@click.option('--max_softclip_length', default=70, help="This is a parameter specified by BWA-MEM. Do not change unless you know what you're doing.")
 @click.option('--threads', default=1, help="Specify the number of threads to use.")
 def find(bam_file, output_prefix, outdir, contig, start, stop, min_softclip_length, min_softclip_count,
          min_softclip_pair_distance, max_softclip_pair_distance, max_softclip_count_ratio_deviation,
-         max_mapping_distance, flank_length, flank_length_percentile, threads):
+         max_mapping_distance, flank_length, flank_length_percentile, max_softclip_length, threads):
 
     if not outdir:
         outdir = output_prefix
@@ -127,6 +128,9 @@ def find(bam_file, output_prefix, outdir, contig, start, stop, min_softclip_leng
     else:
         click.echo('Using specified flank length of %d...\n' % flank_length)
 
+    click.echo('Calculating the average read length from the BAM file...')
+    avg_read_length = misc.calculate_average_read_length(bam_file)
+    click.echo('Final average read length calculated as %d.\n' % avg_read_length )
 
     final_df = None
     for i in range(len(candidate_sites)):
@@ -134,7 +138,8 @@ def find(bam_file, output_prefix, outdir, contig, start, stop, min_softclip_leng
         contig = candidate_sites.loc[i,'contig']
         site = (candidate_sites.loc[i,'left_site'], candidate_sites.loc[i,'right_site'])
         df = inseq_site_processor.process_candidate_site(bam_file, contig, site, flank_length,
-                                                         max_mapping_distance, outdir, output_prefix)
+                                                         max_mapping_distance, max_softclip_length,
+                                                         avg_read_length, outdir, output_prefix)
         if final_df is None:
             final_df = df
         else:
