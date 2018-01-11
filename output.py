@@ -110,7 +110,7 @@ def stats_dataframe_to_gff3(df, outdir, output_prefix):
             name = 'insertion_site-' + '_'.join(map(str, [contig, left_site, right_site]))
 
             out.write('\t'.join(map(str, [contig, 'mustache', 'insertion_site', left_site+2, right_site, name, '.',
-                                          '.', '.', 'RIGHT_ASSEMBLY={right};LEFT_ASSEMBLY={left};MERGED_ASSEMBLY={merged}'.format(
+                                          '.', '.', 'RIGHT_ASSEMBLY={right};LEFT_ASSEMBLY={left};MERGED_ASSEMBLY={merged}\n'.format(
                                         left=left_assembly, right=right_assembly, merged=merged_assembly)])))
 
 

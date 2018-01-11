@@ -61,7 +61,8 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
 
     # Assembling the left flank
     left_inseq_assembly = misc.revcomp(flank_assembler.assemble_flank(left_softclipped_reads, left_unmapped_reads))
-
+    out_dict['left_assembly'] = [left_inseq_assembly]
+    out_dict['left_assembly_length'] = [len(left_inseq_assembly)]
     click.echo('\t\tLeft assembly:')
     click.echo(misc.wrap_string(left_inseq_assembly, newline_char='\t\t'))
     click.echo()
@@ -73,14 +74,11 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
         click.echo(misc.wrap_string(merged_assembly, newline_char='\t\t'))
         out_dict['merged_assembly'] = [merged_assembly]
         out_dict['merged_assembly_length'] = [len(merged_assembly)]
+        right_inseq_assembly = merged_assembly
+        left_inseq_assembly = merged_assembly
     else:
         click.echo('\t\tThe assembly did not merge...')
     click.echo()
-
-    out_dict['right_assembly'] = [right_inseq_assembly]
-    out_dict['right_assembly_length'] = [len(right_inseq_assembly)]
-    out_dict['left_assembly'] = [left_inseq_assembly]
-    out_dict['left_assembly_length'] = [len(left_inseq_assembly)]
 
     # Now get direct insertion sequence reads
     click.echo('\tGetting IS overlapping reads directly at the insertion sequence site...')
@@ -285,10 +283,6 @@ def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overla
         else:
             print("I MISSED SOMETHING")
             sys.exit()
-
-        right_inseq_assembly = merged_assembly
-        left_inseq_assembly = merged_assembly
-
 
     return right_inseq_assembly, left_inseq_assembly, merged_assembly
 

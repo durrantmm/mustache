@@ -12,6 +12,7 @@ def run(bam_file, contig, start, stop, min_softclip_length, min_softclip_count,
                                               max_softclip_count_ratio_deviation)
     return softclipped_pairs
 
+
 def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, min_softclip_count):
     soft_clips = defaultdict(lambda: defaultdict(set))
 
@@ -29,6 +30,7 @@ def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, mi
     soft_clip_counts_filtered = filter_softclip_counts(soft_clip_counts, min_softclip_count)
 
     return soft_clip_counts_filtered
+
 
 def get_softclipped_pairs(softclipped_sites, min_softclip_pair_distance, max_softclip_pair_distance,
                           max_softclip_count_ratio_deviation):
