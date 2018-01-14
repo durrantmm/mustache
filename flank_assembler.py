@@ -49,6 +49,7 @@ class KmerGraph:
 
 class InsertionSequenceAssembler:
 
+    kmer_size = None
     starting_node = None
     kmer_graph = KmerGraph()
     softclipped_reads = None
@@ -57,6 +58,7 @@ class InsertionSequenceAssembler:
 
     def __init__(self, softclipped_reads, unmapped_reads, kmer_size=31):
 
+        self.kmer_size = kmer_size
         self.softclipped_reads = softclipped_reads
         self.unmapped_reads = unmapped_reads
         self.total_kmer_count = defaultdict(int)
