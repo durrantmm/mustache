@@ -74,7 +74,7 @@ class InsertionSequenceAssembler:
             if len(read_seq) <= self.kmer_size:
                 continue
 
-            kmers = list(self.kmer_composition(read_seq, self.kmer_size))
+            kmers = list(self.kmer_composition(read_seq))
             first_kmer[kmers[0]] += 1
 
             for i in range(len(kmers)):
