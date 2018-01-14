@@ -101,8 +101,8 @@ class InsertionSequenceAssembler:
             if len(forward_read_seq) <= self.kmer_size:
                 continue
 
-            forward_kmers = list(self.kmer_composition(forward_read_seq, kmer_size))
-            reverse_kmers = list(self.kmer_composition(reverse_read_seq, kmer_size))
+            forward_kmers = list(self.kmer_composition(forward_read_seq))
+            reverse_kmers = list(self.kmer_composition(reverse_read_seq))
 
             for i in range(len(forward_kmers)):
                 self.total_kmer_count[read_name] += 1
@@ -153,9 +153,9 @@ class InsertionSequenceAssembler:
         return assembly
 
 
-    def kmer_composition(self, read, kmer_size):
-        for i in range(len(read) - kmer_size):
-            yield read[i:(i + kmer_size)]
+    def kmer_composition(self, read):
+        for i in range(len(read) - self.kmer_size):
+            yield read[i:(i + self.kmer_size)]
 
 
     def get_best_sliding_alignment(self, query_read, ref_read):
