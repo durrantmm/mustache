@@ -61,17 +61,18 @@ class InsertionSequenceAssembler:
         self.unmapped_reads = unmapped_reads
         self.total_kmer_count = defaultdict(int)
 
+    def build_graph(self):
         num_processed_reads = 0
         first_kmer = defaultdict(int)
 
-        for r in softclipped_reads:
+        for r in self.softclipped_reads:
             read_name = r[0]
             read_seq = r[1]
 
-            if len(read_seq) <= kmer_size:
+            if len(read_seq) <= self.kmer_size:
                 continue
 
-            kmers = list(self.kmer_composition(read_seq, kmer_size))
+            kmers = list(self.kmer_composition(read_seq, self.kmer_size))
             first_kmer[kmers[0]] += 1
 
             for i in range(len(kmers)):
@@ -84,7 +85,8 @@ class InsertionSequenceAssembler:
 
             num_processed_reads += 1
 
-        print(num_processed_reads)
+        if num_processed_reads == 0:
+            return False
         # Get starting kmer
         self.starting_node = max(list(first_kmer.items()), key=lambda x: x[1])[0]
 
@@ -94,7 +96,7 @@ class InsertionSequenceAssembler:
             forward_read_seq = r[1]
             reverse_read_seq = misc.revcomp(r[1])
 
-            if len(forward_read_seq) <= kmer_size:
+            if len(forward_read_seq) <= self.kmer_size:
                 continue
 
             forward_kmers = list(self.kmer_composition(forward_read_seq, kmer_size))
@@ -110,6 +112,7 @@ class InsertionSequenceAssembler:
                     self.kmer_graph.add_kmer(forward_kmers[i], read_name)
                     self.kmer_graph.add_kmer(reverse_kmers[i], read_name)
 
+        return True
 
     def assemble(self, trim_by_softclips=True, max_len=3000):
         read_name_count = defaultdict(int)
@@ -295,10 +298,15 @@ def assemble_flank(softclipped, unmapped, kmer_sizes=[21,31,41,51,61]):
     longest_assembly = ''
     for kmer_size in kmer_sizes:
         assembler = InsertionSequenceAssembler(softclipped, unmapped, kmer_size)
-        assembly = assembler.assemble()
-        if len(assembly) > longest_assembly_length:
-            longest_assembly_length = len(assembly)
-            longest_assembly = assembly
+        built = assembler.build_graph()
+
+        if built:
+
+            assembly = assembler.assemble()
+            if len(assembly) > longest_assembly_length:
+                longest_assembly_length = len(assembly)
+                longest_assembly = assembly
+
     return longest_assembly
 
 
