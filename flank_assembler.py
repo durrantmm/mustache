@@ -56,7 +56,7 @@ class InsertionSequenceAssembler:
     total_kmer_count = None
 
     def __init__(self, softclipped_reads, unmapped_reads, kmer_size=31):
-
+        print(kmer_size)
         self.softclipped_reads = softclipped_reads
         self.unmapped_reads = unmapped_reads
         self.total_kmer_count = defaultdict(int)
