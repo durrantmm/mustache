@@ -56,11 +56,12 @@ class InsertionSequenceAssembler:
     total_kmer_count = None
 
     def __init__(self, softclipped_reads, unmapped_reads, kmer_size=31):
-        print(kmer_size)
+
         self.softclipped_reads = softclipped_reads
         self.unmapped_reads = unmapped_reads
         self.total_kmer_count = defaultdict(int)
 
+        num_processed_reads = 0
         first_kmer = defaultdict(int)
 
         for r in softclipped_reads:
@@ -81,6 +82,9 @@ class InsertionSequenceAssembler:
                 except IndexError:
                     self.kmer_graph.add_kmer(kmers[i], read_name)
 
+            num_processed_reads += 1
+
+        print(num_processed_reads)
         # Get starting kmer
         self.starting_node = max(list(first_kmer.items()), key=lambda x: x[1])[0]
 
