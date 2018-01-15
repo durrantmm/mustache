@@ -54,7 +54,7 @@ def merge_assemblies(right_assemblies, left_assemblies, merged_assemblies):
         sys.exit()
 
     if len(left_assemblies) == 1:
-        return left_assemblies[0], right_assemblies[0], merged_assemblies[0], 1
+        return right_assemblies[0], left_assemblies[0], merged_assemblies[0], 1
 
     merged_right_assembly = right_assemblies[0]
     for asm in right_assemblies[1:]:
