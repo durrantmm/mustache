@@ -32,14 +32,14 @@ def merge(sites_files):
         contig, left, right = s
         right_assemblies, left_assemblies, merged_assemblies = sites[s]['right'], sites[s]['left'], sites[s]['merged']
 
-        left_asm, right_asm, merged_asm, count = merge_assemblies(right_assemblies, left_assemblies, merged_assemblies)
+        right_asm, left_asm, merged_asm, count = merge_assemblies(right_assemblies, left_assemblies, merged_assemblies)
 
         out_df['contig'].append(contig)
         out_df['left_site'].append(left)
         out_df['right_site'].append(right)
         out_df['count'].append(count)
-        out_df['right_assembly'].append(left_asm)
-        out_df['left_assembly'].append(right_asm)
+        out_df['right_assembly'].append(right_asm)
+        out_df['left_assembly'].append(left_asm)
         out_df['merged_assembly'].append(merged_asm)
 
     out_df = pd.DataFrame(out_df)
