@@ -1,7 +1,7 @@
 import sys
 import click
 import pysam
-import bwa_tools, identify_candidate_sites, inseq_site_processor, misc
+import bwa_tools, identify_candidate_sites, inseq_site_processor, misc, merge_sites
 from os.path import join, basename, dirname, isdir, isfile
 import os, sys
 import pandas as pd
@@ -145,6 +145,113 @@ def find(bam_file, output_prefix, outdir, contig, start, stop, min_softclip_leng
         else:
             final_df = pd.concat([final_df, df])
     click.echo('Finished processing all sites...\n')
+    final_df = final_df.sort_values(['contig', 'left_site', 'right_site'])
+
+    click.echo('Merging BAM files...')
+    output.merge_bams_in_directory(join(outdir, output_prefix + '.direct_inseq_bam'),
+                                   join(outdir, output_prefix + '.all_direct_inseq.bam'))
+    output.merge_bams_in_directory(join(outdir, output_prefix + '.direct_ancestral_bam'),
+                                   join(outdir, output_prefix + '.all_direct_ancestral.bam'))
+    output.merge_bams_in_directory(join(outdir, output_prefix + '.flanking_inseq_bam'),
+                                   join(outdir, output_prefix + '.all_flanking_inseq.bam'))
+    output.merge_bams_in_directory(join(outdir, output_prefix + '.flanking_ancestral_bam'),
+                                   join(outdir, output_prefix + '.all_flanking_ancestral.bam'))
+    click.echo('All BAM files merged...\n')
+
+    click.echo('Writing statistics to CSV file...')
+    output.write_final_dataframe(final_df, outdir, output_prefix)
+    click.echo('Finished writing statistics...\n')
+
+    click.echo('Writing sequences to FASTA file...')
+    output.stats_dataframe_to_fasta(final_df, outdir, output_prefix)
+    click.echo('Finished writing FASTA...\n')
+
+    click.echo('Writing sequences to FASTA file...')
+    output.stats_dataframe_to_fasta(final_df, outdir, output_prefix)
+    click.echo('Finished writing FASTA...\n')
+
+    click.echo('Writing sites to GFF3 file...')
+    output.stats_dataframe_to_gff3(final_df, outdir, output_prefix)
+    click.echo('Finished writing GFF3...\n')
+
+@click.command()
+@click.argument('sites_files', nargs=-1, type=click.Path(exists=True))
+def mergesites(sites_files):
+
+    if len(sites_files) == 0:
+        print('No sites files specified.')
+
+    sites = merge_sites.merge(sites_files)
+    sites.sort_values(['contig', 'left_site', 'right_site'])
+    output.dataframe_to_stdout(sites)
+
+
+@click.command()
+@click.argument('bam_file', type=click.Path(exists=True))
+@click.argument('sites_file', type=click.Path(exists=True))
+@click.argument('output_prefix')
+@click.option('--outdir', help="Indicate the directory where you want to write the output files. Default is the output given output prefix")
+@click.option('--max_mapping_distance', default=3000, help="The maximum distance between two pairs to be considered concordantly mapped.")
+@click.option('--flank_length', type=int, help="Specify flank length if desired. Otherwise, flank_length_percentile will be used to calculate flank length from the bam file.")
+@click.option('--flank_length_percentile', default=0.999, help="Assuming normally distributed fragment size, choose the percentile used as length cutoff.")
+@click.option('--max_softclip_length', default=70, help="This is a parameter specified by BWA-MEM. Do not change unless you know what you're doing.")
+@click.option('--threads', default=1, help="Specify the number of threads to use.")
+def callsites(bam_file, sites_file, output_prefix, outdir, max_mapping_distance, flank_length, flank_length_percentile, max_softclip_length, threads):
+    if not outdir:
+        outdir = output_prefix
+    else:
+        outdir = outdir
+
+    click.echo("Making output directory if it doesn't exist...")
+    os.makedirs(outdir, exist_ok=True)
+    if not isdir(outdir):
+        click.echo("Fatal error: Could not create specified directory.")
+        sys.exit()
+    click.echo("Successfully created the specified output directory...\n")
+
+    click.echo("Opening specified BAM file...")
+    bam_file = pysam.AlignmentFile(bam_file, 'rb')
+    click.echo("BAM file successfully opened...\n")
+
+    click.echo("Reading in insertion sites file...")
+    select_columns = ['contig', 'left_site', 'right_site', 'left_assembly', 'right_assembly', 'merged_assembly']
+    sites = pd.read_csv(sites_file, sep='\t')[select_columns]
+    click.echo("A total of %d sites will be investigated...\n" % len(sites))
+    click.echo(sites[['contig','left_site','right_site']])
+    click.echo()
+
+    if not flank_length:
+        click.echo('Calculating the maximum inseq flank length based on observed fragment length...')
+        flank_length = misc.calculate_flank_length(bam_file, max_mapping_distance, flank_length_percentile)
+        click.echo('Final flank length calculated as %d.' % flank_length)
+        click.echo('Assuming fragment length to be normally distributed, this should include {perc}% of all read pairs...\n'.format(perc = 100*flank_length_percentile))
+    else:
+        click.echo('Using specified flank length of %d...\n' % flank_length)
+
+    click.echo('Calculating the average read length from the BAM file...')
+    avg_read_length = misc.calculate_average_read_length(bam_file)
+    click.echo('Final average read length calculated as %d.\n' % avg_read_length )
+
+    final_df = None
+    for i in range(len(sites)):
+        click.echo('Processing site %d of %d' % (i+1, len(sites)))
+
+        contig = sites.iloc[i,]['contig']
+        site = (sites.iloc[i,]['left_site'], sites.iloc[i,]['right_site'])
+        right_asm = sites.iloc[i,]['right_assembly']
+        left_asm = sites.iloc[i,]['left_assembly']
+        merged_asm = sites.iloc[i,]['merged_assembly']
+
+        df = inseq_site_processor.process_call_site(bam_file, contig, site, right_asm, left_asm, merged_asm,
+                                                    flank_length, max_mapping_distance, max_softclip_length,
+                                                    avg_read_length, outdir, output_prefix)
+        if final_df is None:
+            final_df = df
+        else:
+            final_df = pd.concat([final_df, df])
+
+    click.echo('Finished processing all sites...\n')
+    final_df = final_df.sort_values(['contig', 'left_site', 'right_site'])
 
     click.echo('Merging BAM files...')
     output.merge_bams_in_directory(join(outdir, output_prefix + '.direct_inseq_bam'),
@@ -177,3 +284,5 @@ def find(bam_file, output_prefix, outdir, contig, start, stop, min_softclip_leng
 
 cli.add_command(align)
 cli.add_command(find)
+cli.add_command(mergesites)
+cli.add_command(callsites)

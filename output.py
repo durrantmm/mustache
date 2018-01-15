@@ -41,8 +41,8 @@ def write_site_reads(reads, bam_file, outdir, output_prefix, suffix=None, sort_a
 
 
 def write_final_dataframe(df, outdir, output_prefix):
-    outfile_name = join(outdir, output_prefix) + '.stats.csv'
-    df.to_csv(outfile_name, index=False)
+    outfile_name = join(outdir, output_prefix) + '.stats.tsv'
+    df.to_csv(outfile_name, index=False, sep='\t')
 
 
 def stats_dataframe_to_fasta(df, outdir, output_prefix):
@@ -123,7 +123,10 @@ def write_sequence(sequence, name, out_path):
 
 def merge_bams_in_directory(direc, out_bam):
     in_bams = join(direc, '*.bam')
-    command_merge = 'samtools merge -f {out_bam} {in_bams}'.format(out_bam=out_bam, in_bams=in_bams)
+    command_merge = 'samtools merge -r -f {out_bam} {in_bams}'.format(out_bam=out_bam, in_bams=in_bams)
     shell(command_merge)
     command_index = 'samtools index {out_bam}'.format(out_bam=out_bam)
     shell(command_index)
+
+def dataframe_to_stdout(df):
+    df.to_csv(sys.stdout, sep='\t')

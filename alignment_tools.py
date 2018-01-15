@@ -1,5 +1,7 @@
 import sys
 import misc
+import click
+from Bio.pairwise2 import format_alignment
 from Bio import pairwise2
 
 class QuickMapper:
@@ -261,3 +263,73 @@ def get_best_sliding_alignment(query_read, ref_read):
                 q_end -= 1
 
     return best_score, best_score_mismatches, best_r_start, best_r_end, best_q_start, best_q_end
+
+
+def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overlap_score = 10, mismatch_prop= 1.0 / 10.0, verbose=True):
+    align_info = get_best_sliding_alignment(right_inseq_assembly, left_inseq_assembly)
+    best_score, best_score_mismatches, best_r_start, best_r_end, best_q_start, best_q_end = align_info
+    align_length = best_r_end - best_r_start
+
+    merged_assembly = None
+
+    if best_score >= min_overlap_score and best_score_mismatches / float(align_length) < mismatch_prop:
+        if verbose:
+            click.echo("They merged!")
+            alignments = pairwise2.align.localms(right_inseq_assembly, left_inseq_assembly, 1, -1, -5, -5)
+            print(format_alignment(*alignments[0]))
+
+
+        if best_q_start > 0 and best_q_end == len(right_inseq_assembly) and \
+            best_r_start == 0 and best_r_end != len(left_inseq_assembly):
+            # XXXXXXXXXXXX
+            #        XXXXXXXXXXXX
+            # XXXXXXXXXXXXXXXXXXX
+            merged_assembly = right_inseq_assembly + left_inseq_assembly[best_r_end:]
+
+        elif best_q_start == 0 and best_q_end == len(right_inseq_assembly) and \
+            best_r_start == 0 and best_r_end == len(left_inseq_assembly):
+            # XXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXX
+            merged_assembly = right_inseq_assembly
+
+        elif best_q_start == 0 and best_q_end == len(right_inseq_assembly) and \
+            best_r_start > 0 and best_r_end != len(left_inseq_assembly):
+            #       XXXXXXXXX
+            # XXXXXXXXXXXXXXXXXXX
+            #       XXXXXXXXXXXXX
+            merged_assembly = left_inseq_assembly[best_r_start:]
+
+        elif best_q_start > 0 and best_q_end != len(right_inseq_assembly) and \
+            best_r_start == 0 and best_r_end == len(left_inseq_assembly):
+            # XXXXXXXXXXXXXXXXXXX
+            #      XXXXXXXXX
+            # XXXXXXXXXXXXXX
+            merged_assembly = right_inseq_assembly[:best_q_end]
+
+        elif best_q_start == 0 and best_q_end != len(right_inseq_assembly) and \
+            best_r_start > 0 and best_r_end == len(left_inseq_assembly):
+            #        XXXXXXXXXXXX
+            # XXXXXXXXXXXX
+            #        XXXXX
+            merged_assembly = right_inseq_assembly[best_q_start:best_q_end]
+        elif best_q_start == 0 and best_q_end == len(right_inseq_assembly) and \
+                best_r_start > 0 and best_r_end == len(left_inseq_assembly):
+            #     XXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXXXXXX
+            #     XXXXXXXXXXXXXXX
+            merged_assembly = right_inseq_assembly
+        elif best_q_start == 0 and best_q_end < len(right_inseq_assembly) and \
+            best_r_start == 0 and best_r_end == len(left_inseq_assembly):
+            merged_assembly = left_inseq_assembly
+            # XXXXXXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXX
+            # XXXXXXXXXXXXXXX
+        else:
+            print('Length Right:', len(right_inseq_assembly))
+            print('Length Left:', len(left_inseq_assembly))
+            print(best_q_start, best_q_end, best_r_start, best_r_end)
+            print("I MISSED SOMETHING")
+            sys.exit()
+
+    return right_inseq_assembly, left_inseq_assembly, merged_assembly
