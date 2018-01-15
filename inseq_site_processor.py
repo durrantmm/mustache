@@ -215,6 +215,15 @@ def unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_d
     left_site = site[0]
     right_site = site[1]
 
+    right_flank_start = right_site - flank_length
+    right_flank_end = right_site
+
+    if right_flank_start < 0:
+        right_flank_start = 0
+
+    left_flank_start = left_site + 1
+    left_flank_end = left_site + 1 + flank_length
+
     # First the right site...
     for read in bam_file.fetch(contig, right_site-flank_length, right_site):
 
@@ -223,7 +232,7 @@ def unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_d
             right_unmapped_reads.append(read_tuple)
 
     # Now the left site
-    for read in bam_file.fetch(contig, left_site+1, left_site+1+flank_length):
+    for read in bam_file.fetch(contig, left_flank_start, left_flank_end):
 
         if read.is_reverse and (read.tlen == 0 or abs(read.tlen) > max_mapping_distance):
             read_tuple = ( read.query_name, read.get_tag('MT') )
@@ -402,6 +411,9 @@ def get_flanking_inseq_reads(bam_file, contig, site, flank_length, right_assembl
     right_flank_start = right_site - flank_length
     right_flank_end = right_site
 
+    if right_flank_start < 0:
+        right_flank_start = 0
+
     left_flank_start = left_site + 1
     left_flank_end = left_site + 1 + flank_length
 
@@ -468,6 +480,9 @@ def get_flanking_ancestral_reads(bam_file, contig, site, flank_length, right_ass
 
     right_flank_start = right_site - flank_length
     right_flank_end = right_site
+
+    if right_flank_start < 0:
+        right_flank_start = 0
 
     left_flank_start = left_site + 1
     left_flank_end = left_site + 1 + flank_length
