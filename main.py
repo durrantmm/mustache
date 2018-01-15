@@ -41,7 +41,7 @@ def align(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
         sys.exit()
     click.echo("Initial alignment completed successfully...\n")
 
-    click.echo("Removing secondary alignmnents...")
+    click.echo("Removing secondary alignments...")
     tmp_cleaned_bam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1]) + '.cleaned.bam.tmp')
     sorted_query_name = bwa_tools.samtools_remove_secondary_alignments(tmp_sam, tmp_cleaned_bam, delete_in_bam=not keep_tmp_files)
     if not sorted_query_name:
@@ -182,7 +182,7 @@ def mergesites(sites_files):
         print('No sites files specified.')
 
     sites = merge_sites.merge(sites_files)
-    sites.sort_values(['contig', 'left_site', 'right_site'])
+    sites = sites.sort_values(['contig', 'left_site', 'right_site'])
     output.dataframe_to_stdout(sites)
 
 
