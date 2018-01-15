@@ -225,7 +225,7 @@ def unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_d
     left_flank_end = left_site + 1 + flank_length
 
     # First the right site...
-    for read in bam_file.fetch(contig, right_site-flank_length, right_site):
+    for read in bam_file.fetch(contig, right_flank_start, right_flank_end):
 
         if not read.is_reverse and (read.tlen == 0 or abs(read.tlen) > max_mapping_distance):
             read_tuple = ( read.query_name, read.get_tag('MT') )
