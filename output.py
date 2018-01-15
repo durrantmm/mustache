@@ -129,4 +129,4 @@ def merge_bams_in_directory(direc, out_bam):
     shell(command_index)
 
 def dataframe_to_stdout(df):
-    df.to_csv(sys.stdout, sep='\t')
+    df.to_csv(sys.stdout, index=False, sep='\t')
