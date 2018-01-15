@@ -9,7 +9,7 @@ def merge(sites_files):
 
     for f in sites_files:
         df = pd.read_csv(f, sep='\t')
-        df = df[['contig', 'left_site', 'right_site', 'left_assembly', 'right_assembly', 'merged_assembly']]
+        df = df[['contig', 'left_site', 'right_site', 'right_assembly', 'left_assembly', 'merged_assembly']]
         for row in range(len(df)):
 
             contig = df.iloc[row,]['contig']
@@ -26,8 +26,9 @@ def merge(sites_files):
 
 
     out_df = OrderedDict([('contig', []), ('left_site',[]), ('right_site',[]), ('count',[]),
-                          ('left_assembly',[]), ('right_assembly',[]), ('merged_assembly',[])])
+                          ('right_assembly',[]), ('left_assembly',[]), ('merged_assembly',[])])
     for s in sites:
+
         contig, left, right = s
         right_assemblies, left_assemblies, merged_assemblies = sites[s]['right'], sites[s]['left'], sites[s]['merged']
 
@@ -37,8 +38,8 @@ def merge(sites_files):
         out_df['left_site'].append(left)
         out_df['right_site'].append(right)
         out_df['count'].append(count)
-        out_df['left_assembly'].append(left_asm)
-        out_df['right_assembly'].append(right_asm)
+        out_df['right_assembly'].append(left_asm)
+        out_df['left_assembly'].append(right_asm)
         out_df['merged_assembly'].append(merged_asm)
 
     out_df = pd.DataFrame(out_df)
