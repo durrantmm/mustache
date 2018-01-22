@@ -273,6 +273,60 @@ def process_call_site(bam_file, contig, site, right_assembly, left_assembly, mer
     return pd.DataFrame(out_dict)
 
 
+def process_call_site_single(bam_file, contig, site, right_assembly, left_assembly, merged_assembly,
+                             max_softclip_length, average_read_length, outdir, output_prefix):
+
+    out_dict = OrderedDict([
+        ('contig', [contig]),
+        ('left_site', [site[0]]),
+        ('right_site', [site[1]]),
+        ('direct_repeat_length', [site[1] - site[0] - 1]),
+        ('direct_inseq_read_count', np.nan),
+        ('direct_ancestral_read_count', np.nan),
+        ('direct_inseq_freq', np.nan),
+        ('adj_direct_inseq_freq', np.nan),
+        ('right_assembly_length', len(right_assembly)),
+        ('left_assembly_length', len(left_assembly)),
+        ('merged_assembly_length', (lambda: len(merged_assembly) if isinstance(merged_assembly, str) else np.nan)()),
+        ('right_assembly', right_assembly),
+        ('left_assembly', left_assembly),
+        ('merged_assembly', merged_assembly)
+    ])
+
+    site_name = contig + ':' + str(site[0]) + '-' + str(site[1])
+
+    click.echo('Processing the site %s' % site_name)
+    bam_path = bam_file.filename.decode('UTF-8')
+    bam_file = pysam.AlignmentFile(bam_path, 'rb')
+
+    # Beginning assembly
+    if isinstance(merged_assembly, str):
+        click.echo('Using the merged assembly as the reference insertion sequence...')
+        right_assembly = merged_assembly
+        left_assembly = merged_assembly
+    else:
+        click.echo('Using left and right flanks as separate reference sequecnes...')
+
+    # Now get direct insertion sequence reads
+    direct_inseq_reads = hndl_get_direct_inseq_reads(bam_file, contig, site, right_assembly, left_assembly,
+                                                     output_prefix, outdir, site_name, out_dict)
+
+    # Now get unique site ancestral reads
+    direct_ancestral_reads = hndl_get_ancestral_inseq_reads(bam_file, contig, site, right_assembly, left_assembly,
+                                                            output_prefix, outdir, site_name, out_dict)
+
+    # Estimate the direct inseq frequency
+    hndl_estimate_direct_inseq_freq(len(direct_inseq_reads), len(direct_ancestral_reads), out_dict)
+
+    # Estimate the adjusted direct inseq frequency
+    hndl_estimate_adj_direct_inseq_freq(max_softclip_length, average_read_length, len(direct_inseq_reads),
+                                        len(direct_ancestral_reads), out_dict)
+
+    del direct_ancestral_reads
+    del direct_inseq_reads
+
+    return pd.DataFrame(out_dict)
+
 def hndl_get_direct_inseq_reads(bam_file, contig, site, right_assembly, left_assembly, output_prefix, outdir, site_name, out_dict):
     click.echo('\tGetting IS overlapping reads directly at the insertion sequence site...')
     direct_inseq_reads = get_direct_inseq_reads(bam_file, contig, site, right_assembly, left_assembly)
