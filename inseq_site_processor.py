@@ -116,6 +116,87 @@ def process_candidate_site(bam_file, contig, site, flank_length, max_mapping_dis
     return pd.DataFrame(out_dict)
 
 
+def process_candidate_site_single(bam_file, contig, site, average_read_length, max_softclip_length, outdir, output_prefix):
+
+    out_dict = OrderedDict([
+        ('contig', [contig]),
+        ('left_site', [site[0]]),
+        ('right_site', [site[1]]),
+        ('direct_repeat_length', [site[1]-site[0]-1]),
+        ('direct_inseq_read_count', np.nan),
+        ('direct_ancestral_read_count', np.nan),
+        ('direct_inseq_freq', np.nan),
+        ('adj_direct_inseq_freq', np.nan),
+        ('right_assembly_length', np.nan),
+        ('left_assembly_length', np.nan),
+        ('merged_assembly_length', np.nan),
+        ('right_assembly', np.nan),
+        ('left_assembly', np.nan),
+        ('merged_assembly', np.nan)
+    ])
+
+    site_name = contig + ':' + str(site[0]) + '-' + str(site[1])
+
+    click.echo('Processing the site %s' % site_name)
+    bam_path = bam_file.filename.decode('UTF-8')
+    bam_file = pysam.AlignmentFile(bam_path, 'rb')
+
+
+    # Beginning assembly
+    click.echo('\tPerforming assembly...')
+    left_softclipped_reads, right_softclipped_reads = get_softclipped_reads_at_site(bam_file, contig, site, revcomp_left=True)
+
+    # Assembling the right flank
+    right_inseq_assembly = flank_assembler.assemble_flank(right_softclipped_reads, [])
+    out_dict['right_assembly'] = [right_inseq_assembly]
+    out_dict['right_assembly_length'] = [len(right_inseq_assembly)]
+    click.echo('\t\tRight assembly:')
+    click.echo(misc.wrap_string(right_inseq_assembly, newline_char='\t\t'))
+    click.echo()
+
+    # Assembling the left flank
+    left_inseq_assembly = misc.revcomp(flank_assembler.assemble_flank(left_softclipped_reads, []))
+    out_dict['left_assembly'] = [left_inseq_assembly]
+    out_dict['left_assembly_length'] = [len(left_inseq_assembly)]
+    click.echo('\t\tLeft assembly:')
+    click.echo(misc.wrap_string(left_inseq_assembly, newline_char='\t\t'))
+    click.echo()
+
+    # Now merge the assemblies if possible...
+    right_inseq_assembly, left_inseq_assembly, merged_assembly = alignment_tools.merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly)
+    if merged_assembly:
+        click.echo('\t\tMerged assembly:')
+        click.echo(misc.wrap_string(merged_assembly, newline_char='\t\t'))
+        out_dict['merged_assembly'] = [merged_assembly]
+        out_dict['merged_assembly_length'] = [len(merged_assembly)]
+        right_inseq_assembly = merged_assembly
+        left_inseq_assembly = merged_assembly
+    else:
+        click.echo('\t\tThe assembly did not merge...')
+    click.echo()
+
+    # Now get direct insertion sequence reads
+    direct_inseq_reads = hndl_get_direct_inseq_reads(bam_file, contig, site, right_inseq_assembly, left_inseq_assembly,
+                                                     output_prefix, outdir, site_name, out_dict)
+
+    # Now get unique site ancestral reads
+    direct_ancestral_reads = hndl_get_ancestral_inseq_reads(bam_file, contig, site, right_inseq_assembly,
+                                                            left_inseq_assembly, output_prefix,outdir, site_name,
+                                                            out_dict)
+
+    # Estimate the direct inseq frequency
+    hndl_estimate_direct_inseq_freq(len(direct_inseq_reads), len(direct_ancestral_reads), out_dict)
+
+    # Estimate the adjusted direct inseq frequency
+    hndl_estimate_adj_direct_inseq_freq(max_softclip_length, average_read_length, len(direct_inseq_reads),
+                                        len(direct_ancestral_reads), out_dict)
+
+    del direct_ancestral_reads
+    del direct_inseq_reads
+
+    return pd.DataFrame(out_dict)
+
+
 def process_call_site(bam_file, contig, site, right_assembly, left_assembly, merged_assembly, flank_length,
                       max_mapping_distance, max_softclip_length, average_read_length, outdir, output_prefix):
 

@@ -41,6 +41,19 @@ def align_to_genome(fastq1, fastq2, genome_path, out_sam, threads=1):
     else:
         return False
 
+
+def align_to_genome_single(fastq, genome_path, out_sam, threads=1):
+    command = "bwa mem -t {threads} {genome_path} {fastq} > {out_sam}".format(
+        genome_path=genome_path, fastq=fastq,out_sam=out_sam, threads=threads)
+    click.echo("Executing command: %s" % command)
+    shell(command)
+
+    if isfile(out_sam):
+        return True
+    else:
+        return False
+
+
 def read_sam_pairs(samfile):
     while True:
         yield(next(samfile), next(samfile))

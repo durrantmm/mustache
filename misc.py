@@ -28,6 +28,7 @@ def calculate_average_read_length(bam_file, max_reads = 100000):
     read_lengths = []
     count = 0
     for read in bam_file.fetch():
+        count += 1
         if count > max_reads:
             break
         read_lengths.append(len(read.query_sequence))
@@ -35,6 +36,46 @@ def calculate_average_read_length(bam_file, max_reads = 100000):
     average = int(np.mean(read_lengths))
 
     return average
+
+
+def calculate_maximum_softclip_length(bam_file, max_reads = 100000):
+    max_softclip_length = 0
+    count = 0
+    for read in bam_file.fetch():
+        if count > max_reads:
+            break
+
+        softclip_length = 0
+        if read.cigartuples[0][0] == 4 and read.cigartuples[-1][0] != 4:
+            softclip_length = read.cigartuples[0][1]
+        elif read.cigartuples[0][0] != 4 and read.cigartuples[-1][0] == 4:
+            softclip_length = read.cigartuples[-1][1]
+
+        if softclip_length != 0:
+            count += 1
+
+        if softclip_length > max_softclip_length:
+            max_softclip_length = softclip_length
+
+
+    return max_softclip_length
+
+
+def calculate_maximum_read_length(bam_file, max_reads=100000):
+    max_read_length = 0
+    count = 0
+    for read in bam_file.fetch():
+
+        count += 1
+
+        if count > max_reads:
+            break
+
+        if len(read.query_sequence) > max_read_length:
+            max_read_length = len(read.query_sequence)
+
+    return max_read_length
+
 
 def revcomp(read):
     reversed_seq = ''
