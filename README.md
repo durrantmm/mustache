@@ -16,7 +16,7 @@ And create the new conda environment with
 
 Now activate the environment with
     
-    conda activate mustache
+    source activate mustache
     
 This is a step that must be repeated whenever using mustache from within this environment.
 
