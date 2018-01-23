@@ -1,0 +1,55 @@
+name: mustache
+channels:
+- bioconda
+- defaults
+dependencies:
+- bwa=0.7.15=1
+- samtools=1.6=0
+- bzip2=1.0.6=h6d464ef_2
+- ca-certificates=2017.08.26=h1d4fec5_0
+- certifi=2017.11.5=py36hf29ccca_0
+- curl=7.54.1=0
+- expat=2.2.5=he0dffb1_0
+- git=2.11.1=0
+- krb5=1.13.2=0
+- libedit=3.1=heed3624_0
+- libffi=3.2.1=hd88cf55_4
+- libgcc=7.2.0=h69d50b8_2
+- libgcc-ng=7.2.0=h7cc24e2_2
+- libssh2=1.8.0=h2d05a93_3
+- libstdcxx-ng=7.2.0=h7a57d05_2
+- ncurses=6.0=h9df7e31_2
+- openssl=1.0.2n=hb7f436b_0
+- perl=5.26.0=hae598fd_0
+- pip=9.0.1=py36h6c6f9ce_4
+- python=3.6.2=0
+- readline=6.2=2
+- setuptools=38.4.0=py36_0
+- sqlite=3.13.0=0
+- tk=8.5.18=0
+- wheel=0.30.0=py36hfd4bba0_1
+- xz=5.2.3=h55aa19d_2
+- zlib=1.2.8=3
+- pip:
+  - appdirs==1.4.3
+  - biopython==1.70
+  - chardet==3.0.4
+  - click==6.7
+  - configargparse==0.12.0
+  - denovomustache (/home/ec2-user/denovomustache)==0.1
+  - idna==2.6
+  - numpy==1.14.0
+  - pandas==0.22.0
+  - patsy==0.5.0
+  - pysam==0.13
+  - python-dateutil==2.6.1
+  - pytz==2017.3
+  - pyyaml==3.12
+  - ratelimiter==1.2.0.post0
+  - requests==2.18.4
+  - scipy==1.0.0
+  - six==1.11.0
+  - snakemake==4.5.0
+  - statsmodels==0.8.0
+  - urllib3==1.22
+  - wrapt==1.10.11
