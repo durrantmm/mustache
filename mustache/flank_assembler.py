@@ -1,6 +1,6 @@
 import sys
 from multiprocessing import Pool
-import misc
+from mustache import misc
 import sys
 from collections import defaultdict
 

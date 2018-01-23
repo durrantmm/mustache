@@ -1,5 +1,5 @@
 import sys
-import misc
+from mustache import misc
 import click
 from Bio.pairwise2 import format_alignment
 from Bio import pairwise2

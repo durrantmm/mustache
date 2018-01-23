@@ -1,6 +1,6 @@
 import pysam
 from os.path import join
-from bwa_tools import samtools_sort_coordinate, samtools_index
+from mustache.bwa_tools import samtools_sort_coordinate, samtools_index
 import sys
 from snakemake import shell
 from os.path import isfile

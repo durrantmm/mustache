@@ -4,7 +4,7 @@ First, install miniconda3. This is an environment management system that should 
 
 Once installed, clone this github directory to some location where it can be stored permanently.
 
-    git clone url
+    git clone https://github.com/durrantmm/mustache.git
     
 Then enter the newly downlaoded mustache directory
 
@@ -16,7 +16,7 @@ And create the new conda environment with
 
 Now activate the environment with
     
-    source activate mustache
+    conda activate mustache
     
 This is a step that must be repeated whenever using mustache from within this environment.
 

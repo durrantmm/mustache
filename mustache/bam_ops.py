@@ -1,6 +1,6 @@
 import sys
-import alignment_tools
-import misc
+from mustache import alignment_tools
+from mustache import misc
 
 def get_softclipped_reads_at_site(bam_file, contig, site, revcomp_left=False):
 

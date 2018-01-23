@@ -1,11 +1,10 @@
 import sys
 import click
 import pysam
-import bwa_tools, identify_candidate_sites, inseq_site_processor, misc, merge_sites
+from mustache import bwa_tools, identify_candidate_sites, inseq_site_processor, misc, merge_sites, output
 from os.path import join, basename, dirname, isdir, isfile
 import os, sys
 import pandas as pd
-import output
 from multiprocessing import Pool
 
 @click.group()

@@ -1,7 +1,7 @@
 import sys
 from collections import defaultdict, OrderedDict
 import pandas as pd
-import alignment_tools
+from mustache import alignment_tools
 
 def merge(sites_files):
 

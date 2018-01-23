@@ -1,14 +1,14 @@
 import sys
 import pysam
-import flank_assembler, alignment_tools
-import misc
-import output
+from mustache import flank_assembler, alignment_tools
+from mustache import misc
+from mustache import output
 from collections import OrderedDict
 import click
 import numpy as np
 import pandas as pd
 from os.path import join
-from bam_ops import *
+from mustache.bam_ops import *
 
 pd.set_option('display.max_rows', 1000)
 pd.set_option('display.max_columns', 1000)
