@@ -27,7 +27,8 @@ Now install mustache from with the command
 Once complete, you can check to see if mustache installed properly by simply typing
 
     mustache
-    
+   
+This can then be called from anywhere on the file system while in the `mustache` conda environment.
 
 # Running `mustache align`
 Mustache uses BWA to align reads to a reference genome fasta, but it has to properly format the alignment files in order
