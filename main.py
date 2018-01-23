@@ -12,7 +12,21 @@ from multiprocessing import Pool
 def cli():
     pass
 
-@click.command()
+@click.group()
+def align():
+    pass
+
+@click.group()
+def find():
+    pass
+
+@click.group()
+def callsites():
+    pass
+
+
+
+@click.command(name='paired')
 @click.argument('fastq1', type=click.Path(exists=True))
 @click.argument('fastq2', type=click.Path(exists=True))
 @click.argument('genome', type=click.Path(exists=True))
@@ -72,7 +86,7 @@ def align_paired(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
     click.echo("BAM file successfully indexed...\n")
 
 
-@click.command()
+@click.command(name='single')
 @click.argument('fastq', type=click.Path(exists=True))
 @click.argument('genome', type=click.Path(exists=True))
 @click.argument('out_bam')
@@ -121,7 +135,7 @@ def align_single(fastq, genome, out_bam, threads, keep_tmp_files):
         sys.exit()
     click.echo("BAM file successfully indexed...\n")
 
-@click.command()
+@click.command(name='paired')
 @click.argument('bam_file', type=click.Path(exists=True))
 @click.argument('output_prefix')
 @click.option('--outdir', help="Indicate the directory where you want to write the output files. Default is the output given output prefix")
@@ -227,7 +241,7 @@ def find_paired(bam_file, output_prefix, outdir, contig, start, stop, min_softcl
     click.echo('Finished writing GFF3...\n')
 
 
-@click.command()
+@click.command(name='single')
 @click.argument('bam_file', type=click.Path(exists=True))
 @click.argument('output_prefix')
 @click.option('--outdir', help="Indicate the directory where you want to write the output files. Default is the output given output prefix")
@@ -329,7 +343,7 @@ def mergesites(sites_files):
     output.dataframe_to_stdout(sites)
 
 
-@click.command()
+@click.command(name='paired')
 @click.argument('bam_file', type=click.Path(exists=True))
 @click.argument('sites_file', type=click.Path(exists=True))
 @click.argument('output_prefix')
@@ -424,7 +438,7 @@ def callsites_paired(bam_file, sites_file, output_prefix, outdir, max_mapping_di
     click.echo('Finished writing GFF3...\n')
 
 
-@click.command()
+@click.command(name='single')
 @click.argument('bam_file', type=click.Path(exists=True))
 @click.argument('sites_file', type=click.Path(exists=True))
 @click.argument('output_prefix')
@@ -506,11 +520,17 @@ def callsites_single(bam_file, sites_file, output_prefix, outdir, threads):
     output.stats_dataframe_to_gff3(final_df, outdir, output_prefix)
     click.echo('Finished writing GFF3...\n')
 
+align.add_command(align_paired)
+align.add_command(align_single)
 
-cli.add_command(align_single)
-cli.add_command(align_paired)
-cli.add_command(find_paired)
-cli.add_command(find_single)
+find.add_command(find_paired)
+find.add_command(find_single)
+
+callsites.add_command(callsites_paired)
+callsites.add_command(callsites_single)
+
+
+cli.add_command(align)
+cli.add_command(find)
 cli.add_command(mergesites)
-cli.add_command(callsites_paired)
-cli.add_command(callsites_single)
+cli.add_command(callsites)
