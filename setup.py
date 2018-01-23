@@ -19,8 +19,10 @@ setup(
         'numpy'
     ],
     zip_safe=False,
-    entry_points='''
-        [console_scripts]
-        mustache=mustache.main:cli
-    ''',
+    entry_points = {
+        'console_scripts': [
+            'mustache = mustache.main.cli'
+            # more script entry points ...
+        ],
+}
 )
