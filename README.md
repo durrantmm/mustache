@@ -20,9 +20,9 @@ Now activate the environment with
     
 This is a step that must be repeated whenever using mustache from within this environment.
 
-Now install in an editable form with the command
+Now install mustache from with the command
 
-    pip install --editable .
+    pip install .
     
 Once complete, you can check to see if mustache installed properly by simply typing
 

@@ -3,6 +3,8 @@ from setuptools import setup
 setup(
     name="mustache",
     version='0.1',
+    description='Tool to identify insertion sequences from whole-genome sequencing data.',
+    url='https://github.com/durrantmm/mustache',
     py_modules=['hello'],
     install_requires=[
         'click',
@@ -16,6 +18,6 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        mustache=main:cli
+        mustache=mustache.main:cli
     ''',
 )
