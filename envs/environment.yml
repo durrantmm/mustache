@@ -36,7 +36,6 @@ dependencies:
   - chardet==3.0.4
   - click==6.7
   - configargparse==0.12.0
-  - denovomustache (/home/ec2-user/denovomustache)==0.1
   - idna==2.6
   - numpy==1.14.0
   - pandas==0.22.0
