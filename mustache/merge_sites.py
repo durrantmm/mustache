@@ -61,7 +61,9 @@ def merge_assemblies(right_assemblies, left_assemblies, merged_assemblies):
         length = min([len(merged_right_assembly), len(asm)])
         score = alignment_tools.left_alignment_score(merged_right_assembly, asm)
 
-        if length / float(score) > 0.9:
+        if score == 0:
+            continue
+        elif length / float(score) > 0.9:
             merged_right_assembly = max([merged_right_assembly, asm], key=len)
 
     merged_left_assembly = left_assemblies[0]
