@@ -326,6 +326,9 @@ def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overla
             # XXXXXXXXXXXXXXX
             # XXXXXXXXXXXXXXX
         else:
+            print(len(right_inseq_assembly))
+            print(len(left_inseq_assembly))
+
             print('Length Right:', len(right_inseq_assembly))
             print('Length Left:', len(left_inseq_assembly))
             print(best_q_start, best_q_end, best_r_start, best_r_end)
