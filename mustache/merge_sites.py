@@ -3,6 +3,37 @@ from collections import defaultdict, OrderedDict
 import pandas as pd
 from mustache import alignment_tools
 
+
+def has_repeats(dna, ratio_cutoff=0.1):
+    kmer_lengths = list()
+    ratios = list()
+
+    for k in range(1, len(dna)):
+
+        kmer_ranges = range(0, len(dna), k)
+
+        if len(list(kmer_ranges)) == 2:
+            break
+
+        kmer_lengths.append(k)
+        kmer_dict = defaultdict(int)
+        for start in range(0, len(dna), k):
+            if start + k > len(dna):
+                break
+            kmer = dna[start:(start + k)]
+            kmer_dict[kmer] += 1
+
+        max_count = max(kmer_dict.values())
+        second_max = second_largest(kmer_dict.values())
+
+        ratio = second_max / max_count
+        ratios.append(ratio)
+
+    if min(ratios) < ratio_cutoff:
+        return True
+    else:
+        return False
+
 def merge(sites_files):
 
     sites = defaultdict(lambda: defaultdict(list))
@@ -34,10 +65,25 @@ def merge(sites_files):
 
         right_asm, left_asm, merged_asm, count = merge_assemblies(right_assemblies, left_assemblies, merged_assemblies)
 
+        right_length, left_length = len(right_asm), len(left_asm)
+        right_repeats, left_repeats = has_repeats(right_asm), has_repeats(left_asm)
+
+
+        merged_length, merged_repeats = None, None
+
+        if merged_asm:
+            merged_length, merged_repeats = len(merged_asm), has_repeats(merged_repeats)
+
         out_df['contig'].append(contig)
         out_df['left_site'].append(left)
         out_df['right_site'].append(right)
         out_df['count'].append(count)
+        out_df['right_length'].append(right_length)
+        out_df['left_length'].append(left_length)
+        out_df['merged_length'].append(merged_length)
+        out_df['right_repeats'].append(right_repeats)
+        out_df['left_repeats'].append(left_repeats)
+        out_df['merged_repeats'].append(merged_repeats)
         out_df['right_assembly'].append(right_asm)
         out_df['left_assembly'].append(left_asm)
         out_df['merged_assembly'].append(merged_asm)
@@ -46,6 +92,7 @@ def merge(sites_files):
 
     return out_df
 
+def count_direct_repeats():
 
 def merge_assemblies(right_assemblies, left_assemblies, merged_assemblies):
 
