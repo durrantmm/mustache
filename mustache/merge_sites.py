@@ -27,7 +27,10 @@ def merge(sites_files):
 
 
     out_df = OrderedDict([('contig', []), ('left_site',[]), ('right_site',[]), ('count',[]),
-                          ('right_assembly',[]), ('left_assembly',[]), ('merged_assembly',[])])
+                          ('right_length',[]), ('left_length',[]), ('merged_length',[]), ('right_repeats', []),
+                          ('left_repeats',[]), ('merged_repeats',[]),('right_assembly',[]),
+                          ('left_assembly',[]), ('merged_assembly',[])])
+
     for s in sites:
 
         contig, left, right = s
