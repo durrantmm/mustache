@@ -3,37 +3,6 @@ from collections import defaultdict, OrderedDict
 import pandas as pd
 from mustache import alignment_tools
 
-
-def has_repeats(dna, ratio_cutoff=0.1):
-    kmer_lengths = list()
-    ratios = list()
-
-    for k in range(1, len(dna)):
-
-        kmer_ranges = range(0, len(dna), k)
-
-        if len(list(kmer_ranges)) == 2:
-            break
-
-        kmer_lengths.append(k)
-        kmer_dict = defaultdict(int)
-        for start in range(0, len(dna), k):
-            if start + k > len(dna):
-                break
-            kmer = dna[start:(start + k)]
-            kmer_dict[kmer] += 1
-
-        max_count = max(kmer_dict.values())
-        second_max = second_largest(kmer_dict.values())
-
-        ratio = second_max / max_count
-        ratios.append(ratio)
-
-    if min(ratios) < ratio_cutoff:
-        return True
-    else:
-        return False
-
 def merge(sites_files):
 
     sites = defaultdict(lambda: defaultdict(list))
@@ -125,7 +94,48 @@ def merge_assemblies(right_assemblies, left_assemblies, merged_assemblies):
 
     return merged_right_assembly, merged_left_assembly, final_merged_assembly, len(right_assemblies)
 
+def second_largest(numbers):
+    num_max = max(numbers)
+    found_max = False
+    second_largest = 0
+    for n in numbers:
+        if n == num_max and not found_max:
+            found_max = True
+        elif n == num_max and found_max:
+            second_largest = n
+        elif n > second_largest:
+            second_largest = n
+    return second_largest
 
+def has_repeats(dna, ratio_cutoff=0.1):
+    kmer_lengths = list()
+    ratios = list()
+
+    for k in range(1, len(dna)):
+
+        kmer_ranges = range(0, len(dna), k)
+
+        if len(list(kmer_ranges)) == 2:
+            break
+
+        kmer_lengths.append(k)
+        kmer_dict = defaultdict(int)
+        for start in range(0, len(dna), k):
+            if start + k > len(dna):
+                break
+            kmer = dna[start:(start + k)]
+            kmer_dict[kmer] += 1
+
+        max_count = max(kmer_dict.values())
+        second_max = second_largest(kmer_dict.values())
+
+        ratio = second_max / max_count
+        ratios.append(ratio)
+
+    if min(ratios) < ratio_cutoff:
+        return True
+    else:
+        return False
 
 
 
