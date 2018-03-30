@@ -83,7 +83,7 @@ def merge(sites_files):
         out_df['merged_length'].append(merged_length)
         out_df['right_repeats'].append(right_repeats)
         out_df['left_repeats'].append(left_repeats)
-        out_df['merged_repeats'].append(merged_repeats)
+        out_df['merged_repeats'].append(merged_length)
         out_df['right_assembly'].append(right_asm)
         out_df['left_assembly'].append(left_asm)
         out_df['merged_assembly'].append(merged_asm)
@@ -91,8 +91,6 @@ def merge(sites_files):
     out_df = pd.DataFrame(out_df)
 
     return out_df
-
-def count_direct_repeats():
 
 def merge_assemblies(right_assemblies, left_assemblies, merged_assemblies):
 
