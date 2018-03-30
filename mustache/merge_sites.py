@@ -41,7 +41,7 @@ def merge(sites_files):
         merged_length, merged_repeats = None, None
 
         if merged_asm:
-            merged_length, merged_repeats = len(merged_asm), has_repeats(merged_repeats)
+            merged_length, merged_repeats = len(merged_asm), has_repeats(merged_asm)
 
         out_df['contig'].append(contig)
         out_df['left_site'].append(left)
