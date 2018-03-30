@@ -2,6 +2,7 @@ import sys
 from collections import defaultdict, OrderedDict
 import pandas as pd
 from mustache import alignment_tools
+import numpy as np
 
 def merge(sites_files):
 
@@ -38,9 +39,9 @@ def merge(sites_files):
         right_repeats, left_repeats = has_repeats(right_asm), has_repeats(left_asm)
 
 
-        merged_length, merged_repeats = None, None
+        merged_length, merged_repeats = np.nan, np.nan
 
-        if merged_asm:
+        if not np.isnan(merged_asm):
             merged_length, merged_repeats = len(merged_asm), has_repeats(merged_asm)
 
         out_df['contig'].append(contig)
