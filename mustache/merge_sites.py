@@ -44,9 +44,7 @@ def merge(sites_files):
 
         merged_length, merged_repeats = np.nan, np.nan
 
-        print(merged_asm)
-        print(type(merged_asm))
-        if not np.isnan(merged_asm):
+        if type(merged_asm) == type('string'):
             merged_length, merged_repeats = len(merged_asm), has_repeats(merged_asm)
 
         out_df['contig'].append(contig)
