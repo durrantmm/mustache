@@ -136,10 +136,14 @@ def has_repeats(dna, ratio_cutoff=0.1):
         ratio = second_max / max_count
         ratios.append(ratio)
 
-    if min(ratios) < ratio_cutoff:
-        return True
-    else:
-        return False
+    try:
+        if min(ratios) < ratio_cutoff:
+            return True
+        else:
+            return False
+    except:
+        print(dna)
+        print(ratios)
 
 
 
