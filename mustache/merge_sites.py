@@ -44,6 +44,8 @@ def merge(sites_files):
 
         merged_length, merged_repeats = np.nan, np.nan
 
+        print(merged_asm)
+        print(type(merged_asm))
         if not np.isnan(merged_asm):
             merged_length, merged_repeats = len(merged_asm), has_repeats(merged_asm)
 
