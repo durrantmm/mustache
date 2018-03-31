@@ -71,7 +71,7 @@ class InsertionSequenceAssembler:
             read_name = r[0]
             read_seq = r[1]
 
-            if len(read_seq) <= self.kmer_size:
+            if len(read_seq) <= self.kmer_size or not only_acgt(read_seq):
                 continue
 
             kmers = list(self.kmer_composition(read_seq))
@@ -311,6 +311,10 @@ def assemble_flank(softclipped, unmapped, kmer_sizes=[21,31,41,51,61]):
 
     return longest_assembly
 
-
+def only_acgt(seq):
+    if seq.count("A") + seq.count("G") + seq.count("C") + seq.count("T") == len(seq):
+        return True
+    else:
+        return False
 
 
