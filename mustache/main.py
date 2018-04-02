@@ -519,6 +519,20 @@ def callsites_single(bam_file, sites_file, output_prefix, outdir, threads):
     output.stats_dataframe_to_gff3(final_df, outdir, output_prefix)
     click.echo('Finished writing GFF3...\n')
 
+@click.command()
+@click.argument('bam_file', type=click.Path(exists=True))
+def softclip_counts(bam_file):
+
+    bam_file = pysam.AlignmentFile(bam_file, 'rb')
+    contigs = bam_file.header['SQ'][0]['SN']
+    lengths = bam_file.header['SQ'][0]['LN']
+    contig_lengths = {contigs: lengths}
+
+    for contig in contig_lengths:
+        print(identify_candidate_sites.get_softclipped_sites(bam_file, contig, None, None, 4, 5))
+
+
+
 align.add_command(align_paired)
 align.add_command(align_single)
 
@@ -533,3 +547,7 @@ cli.add_command(align)
 cli.add_command(find)
 cli.add_command(mergesites)
 cli.add_command(callsites)
+cli.add_command(softclip_counts)
+
+if __name__ == '__main__':
+    cli()

@@ -32,6 +32,23 @@ def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, mi
     return soft_clip_counts_filtered
 
 
+def get_softclipped_sites_unfiltered(bam_file, contig, start, stop):
+    soft_clips = defaultdict(lambda: defaultdict(set))
+
+    for read in bam_file.fetch(contig, start, stop):
+
+        if is_right_softclipped(read):
+
+            soft_clips[right_softclip_site(read)]['R'].add(read.query_name)
+
+        if is_left_softclipped(read):
+
+            soft_clips[left_softclip_site(read)]['L'].add(read.query_name)
+
+    soft_clip_counts = get_softclip_counts(soft_clips)
+
+    return soft_clip_counts
+
 def get_softclipped_pairs(softclipped_sites, min_softclip_pair_distance, max_softclip_pair_distance,
                           max_softclip_count_ratio_deviation):
     df = softclipped_sites

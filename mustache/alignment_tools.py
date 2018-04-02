@@ -199,6 +199,10 @@ def right_alignment_score(read1, read2):
 
 
 def get_best_sliding_alignment(query_read, ref_read):
+
+    print("Query Read:", query_read)
+    print("Reference Read:", ref_read)
+
     max_len = min(len(query_read), len(ref_read))
     max_len_query, max_len_ref = False, False
 
@@ -225,8 +229,10 @@ def get_best_sliding_alignment(query_read, ref_read):
         score = 0
         mismatches = 0
         for i in range(q_end - q_start):
+
             if query_read[q_start:q_end][i] == ref_read[r_start:r_end][i]:
                 score += 1
+
             else:
                 score -= 1
                 mismatches += 1
