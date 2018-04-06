@@ -64,7 +64,6 @@ dependencies:
     - configargparse==0.13.0
     - datrie==0.7.1
     - idna==2.6
-    - mustache==0.1
     - numpy==1.14.2
     - pandas==0.22.0
     - patsy==0.5.0
