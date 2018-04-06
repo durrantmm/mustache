@@ -1,0 +1,62 @@
+from snakemake import shell
+from glob import glob
+from os.path import isfile
+import click
+
+def index_genome(genome_path, silence=False):
+    if silence:
+        shell('bowtie2-build -o 1 -q {genome_path} {genome_path} 2> junk; rm junk'.format(genome_path=genome_path))
+    else:
+        shell('bowtie2-build -o 1 {genome_path} {genome_path}'.format(genome_path=genome_path))
+
+    return genome_is_indexed(genome_path)
+
+
+def genome_is_indexed(genome_path):
+
+    one = genome_path + '.1.bt2'
+    two = genome_path + '.2.bt2'
+    three = genome_path + '.3.bt2'
+    four = genome_path + '.4.bt2'
+    five = genome_path + '.rev.1.bt2'
+    six = genome_path + '.rev.2.bt2'
+
+    index_files = [one, two, three, four, five, six]
+
+    indexed = True
+    files = glob(genome_path+'*')
+    for f in index_files:
+        if f not in files:
+            indexed = False
+
+    return indexed
+
+def align_fasta_to_genome(fasta, genome_path, out_bam, threads=1, silence=False):
+
+    if silence:
+        command = "bowtie2 --very-fast-local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam 2> junk; " \
+                  "samtools view -h -q 1 {out_bam}.sam 2> junk 1> {out_bam}.sam.tmp; " \
+                  "samtools sort {out_bam}.sam.tmp 2> junk 1> {out_bam}; " \
+                  "samtools index {out_bam} 2> junk;" \
+                  "rm junk {out_bam}.sam {out_bam}.sam.tmp".format(
+            genome_path=genome_path, fasta=fasta, out_bam=out_bam, threads=threads)
+
+    else:
+        command = "bowtie2 --local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam; " \
+                  "samtools view -h -q 1 {out_bam}.sam > {out_bam}.sam.tmp; " \
+                  "samtools sort {out_bam}.sam.tmp > {out_bam}; " \
+                  "samtools index {out_bam};" \
+                  "rm junk {out_bam}.sam {out_bam}.sam.tmp".format(
+            genome_path=genome_path, fasta=fasta, out_bam=out_bam, threads=threads)
+
+
+
+    if not silence:
+        click.echo("Executing command: %s" % command)
+
+    shell(command, read=silence)
+
+    if isfile(out_bam):
+        return True
+    else:
+        return False

@@ -1,114 +1,135 @@
 from collections import defaultdict, OrderedDict
-from scipy.stats import poisson
 import pandas as pd
-import sys
-import time
-from statsmodels.sandbox.stats.multicomp import fdrcorrection0 as fdr_adjust
+from mustache import misc
+from scipy.stats import poisson
+import numpy as np
+import click
 
-def run(bam_file, contig, start, stop, min_softclip_length, min_softclip_count,
-        min_softclip_pair_distance, max_softclip_pair_distance, max_softclip_count_ratio_deviation):
-    softclipped_sites = get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, min_softclip_count)
-    softclipped_pairs = get_softclipped_pairs(softclipped_sites, min_softclip_pair_distance, max_softclip_pair_distance,
-                                              max_softclip_count_ratio_deviation)
-    return softclipped_pairs
+def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, min_softclip_count, min_softclip_pair_distance, max_softclip_pair_distance):
 
-
-def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, min_softclip_count):
     soft_clips = defaultdict(lambda: defaultdict(set))
 
-    for read in bam_file.fetch(contig, start, stop):
+    contigs = misc.get_bam_contig_dict(bam_file)
 
-        if is_right_softclipped(read) and right_softclip_length(read) >= min_softclip_length:
+    if contig:
+        contigs= {contig: contigs[contig]}
 
-            soft_clips[right_softclip_site(read)]['R'].add(read.query_name)
+    all_softclipped_sites = None
+    for contig in contigs:
+        click.echo("\tProcessing softclipped sites on contig %s..." % contig)
+        for read in bam_file.fetch(contig, start, stop):
 
-        if is_left_softclipped(read) and left_softclip_length(read) >= min_softclip_length:
+            if is_right_softclipped(read) and right_softclip_length(read) >= min_softclip_length:
 
-            soft_clips[left_softclip_site(read)]['L'].add(read.query_name)
+                soft_clips[right_softclip_site(read)]['R'].add(read.query_name)
 
-    soft_clip_counts = get_softclip_counts(soft_clips)
-    soft_clip_counts_filtered = filter_softclip_counts(soft_clip_counts, min_softclip_count)
+            if is_left_softclipped(read) and left_softclip_length(read) >= min_softclip_length:
 
-    return soft_clip_counts_filtered
+                soft_clips[left_softclip_site(read)]['L'].add(read.query_name)
 
+        click.echo("\tGetting softclip counts...")
+        soft_clip_counts = get_softclip_counts(soft_clips)
+        click.echo("\tFiltering softclipped sites...")
+        soft_clip_counts_filtered = filter_softclip_counts(soft_clip_counts, min_softclip_count, contigs[contig], min_softclip_pair_distance, max_softclip_pair_distance)
 
-def get_softclipped_sites_unfiltered(bam_file, contig, start, stop):
-    soft_clips = defaultdict(lambda: defaultdict(set))
+        if all_softclipped_sites is None:
+            all_softclipped_sites = soft_clip_counts_filtered
+        else:
+            all_softclipped_sites = pd.concat([all_softclipped_sites, soft_clip_counts_filtered])
 
-    for read in bam_file.fetch(contig, start, stop):
-
-        if is_right_softclipped(read):
-
-            soft_clips[right_softclip_site(read)]['R'].add(read.query_name)
-
-        if is_left_softclipped(read):
-
-            soft_clips[left_softclip_site(read)]['L'].add(read.query_name)
-
-    soft_clip_counts = get_softclip_counts(soft_clips)
-
-    return soft_clip_counts
-
-def get_softclipped_pairs(softclipped_sites, min_softclip_pair_distance, max_softclip_pair_distance,
-                          max_softclip_count_ratio_deviation):
-    df = softclipped_sites
-    final_pairs = OrderedDict([('contig',[]), ('left_site',[]), ('right_site',[]), ('distance', []), ('left_count',[]), ('right_count',[])])
-
-    for contig in df.contig.unique():
-        df_contig = df.query("contig == '%s'" % contig).reset_index(drop=True)
-
-        i = 0
-        while i < (len(df_contig)-1):
-
-            L_count_p1 = df_contig.loc[i,'L_count']
-            R_count_p2 = df_contig.loc[i+1, 'R_count']
-
-            base_p1 = df_contig.loc[i, 'base']
-            base_p2 = df_contig.loc[i + 1, 'base']
-
-            distance = base_p2-base_p1
-            if L_count_p1 > 0 and R_count_p2 > 0 and min_softclip_pair_distance <= distance <= max_softclip_pair_distance:
-                count_ratio = float(L_count_p1) / (L_count_p1 + R_count_p2)
-                if 0.5-max_softclip_count_ratio_deviation < count_ratio < 0.5+max_softclip_count_ratio_deviation:
-                    final_pairs['contig'].append(contig)
-                    final_pairs['left_site'].append(base_p1)
-                    final_pairs['right_site'].append(base_p2)
-                    final_pairs['distance'].append(base_p2-base_p1)
-                    final_pairs['left_count'].append(L_count_p1)
-                    final_pairs['right_count'].append(R_count_p2)
-                    i += 2
-                    continue
-
-            i += 1
-
-    out_df = pd.DataFrame(final_pairs)
-
-    return out_df
+    return all_softclipped_sites
 
 
 def get_softclip_counts(soft_clips):
 
-    soft_clip_counts = OrderedDict([('contig', []), ('base', []), ('L_count', []), ('R_count', [])])
+    soft_clip_counts = OrderedDict([('contig', []), ('site', []), ('L_count', []), ('R_count', [])])
     for site in soft_clips:
         left_softclip_count = len(soft_clips[site]['L'])
         right_softclip_count = len(soft_clips[site]['R'])
         soft_clip_counts['contig'].append(site[0])
-        soft_clip_counts['base'].append(site[1])
+        soft_clip_counts['site'].append(site[1])
         soft_clip_counts['L_count'].append(left_softclip_count)
         soft_clip_counts['R_count'].append(right_softclip_count)
 
     soft_clip_counts = pd.DataFrame(soft_clip_counts)
+    soft_clip_counts = soft_clip_counts.sort_values(['contig', 'site']).reset_index(drop=True)
 
     return soft_clip_counts
 
 
-def filter_softclip_counts(soft_clip_counts, min_softclip_count):
+def filter_softclip_counts(soft_clip_counts, min_softclip_count, contig_length, min_softclip_pair_distance, max_softclip_pair_distance,
+                           flank_small_len=1000, flank_int_len=5000, flank_large_len=10000, pval_cutoff=1e-5):
     df = soft_clip_counts
-    df['L_count'] = [c if c >= min_softclip_count else 0 for c in df['L_count']]
-    df['R_count'] = [c if c >= min_softclip_count else 0 for c in df['R_count']]
 
-    df = df.query('L_count > 0 or R_count > 0')
-    df = df.sort_values(['contig', 'base'])
+    L_lambda_bg = df.L_count.sum() / contig_length
+    R_lambda_bg = df.R_count.sum() / contig_length
+
+    df.loc[:,'L_lambda_bg'] = L_lambda_bg
+    df.loc[:,'R_lambda_bg'] = R_lambda_bg
+
+    L_lambda_small, R_lambda_small = [], []
+    L_lambda_int, R_lambda_int = [], []
+    L_lambda_large, R_lambda_large = [], []
+
+    for index, row in df.iterrows():
+        if index % 1000 == 0 and index > 0:
+            click.echo("\t\tProcessed %d sites." % index)
+        site_pos = row['site']
+
+        flank_large_lower = site_pos - flank_large_len if site_pos - flank_large_len >= 0 else 0
+        flank_large_upper = site_pos + flank_large_len if site_pos + flank_large_len < contig_length else contig_length - 1
+
+        flank_int_lower = site_pos - flank_int_len if site_pos - flank_int_len >= 0 else 0
+        flank_int_upper = site_pos + flank_int_len if site_pos + flank_int_len < contig_length else contig_length - 1
+
+        flank_small_lower = site_pos - flank_small_len if site_pos - flank_small_len >= 0 else 0
+        flank_small_upper = site_pos + flank_small_len if site_pos + flank_small_len < contig_length else contig_length - 1
+
+        flanks_large = df.query("site <= {upper} & site >= {lower}".format(lower=flank_large_lower, upper=flank_large_upper))
+        flanks_int = flanks_large.query("site <= {upper} & site >= {lower}".format(lower=flank_int_lower, upper=flank_int_upper))
+        flanks_small = flanks_int.query("site <= {upper} & site >= {lower}".format(lower=flank_small_lower, upper=flank_small_upper))
+
+        L_lambda_small.append(flanks_small.L_count.sum() / (flank_small_upper - flank_small_lower))
+        R_lambda_small.append(flanks_small.R_count.sum() / (flank_small_upper - flank_small_lower))
+
+        L_lambda_int.append(flanks_int.L_count.sum() / (flank_int_upper - flank_int_lower))
+        R_lambda_int.append(flanks_int.R_count.sum() / (flank_int_upper - flank_int_lower))
+
+        L_lambda_large.append(flanks_large.L_count.sum() / (flank_large_upper - flank_large_lower))
+        R_lambda_large.append(flanks_large.R_count.sum() / (flank_large_upper - flank_large_lower))
+
+    df.loc[:,'L_lambda_small'], df.loc[:,'R_lambda_small'] = L_lambda_small, R_lambda_small
+    df.loc[:,'L_lambda_int'], df.loc[:,'R_lambda_int'] = L_lambda_int, R_lambda_int
+    df.loc[:,'L_lambda_large'], df.loc[:,'R_lambda_large'] = L_lambda_large, R_lambda_large
+
+
+    #print(df)
+
+    # Apply the minimum count filter
+    df.loc[:,'L_count'] = [c if c >= min_softclip_count else 0 for c in df['L_count']]
+    df.loc[:,'R_count'] = [c if c >= min_softclip_count else 0 for c in df['R_count']]
+    df = pd.DataFrame(df.query('L_count >= {min_softclip_count} | R_count >= {min_softclip_count}'.format(min_softclip_count=min_softclip_count)))
+
+    # Choosing the maximum lambda
+
+    df.loc[:,'L_lambda_max'] = df.apply(lambda r: max(r['L_lambda_bg'], r['L_lambda_small'], r['L_lambda_int'], r['L_lambda_large']), axis=1)
+    df.loc[:,'R_lambda_max'] = df.apply(lambda r: max(r['R_lambda_bg'], r['R_lambda_small'], r['R_lambda_int'], r['R_lambda_large']), axis=1)
+
+    df.loc[:,'L_pval'] = df.apply(lambda r: 1 - poisson.cdf(r['L_count'], r['L_lambda_max']) if r['L_count'] > 0 else np.nan, axis=1)
+    df.loc[:,'R_pval'] = df.apply(lambda r: 1 - poisson.cdf(r['R_count'], r['R_lambda_max']) if r['R_count'] > 0 else np.nan, axis=1)
+
+
+    df.loc[:,'L_pass'] = df.apply(lambda r: True if r['L_pval'] < pval_cutoff else False, axis=1)
+    df.loc[:,'R_pass'] = df.apply(lambda r: True if r['R_pval'] < pval_cutoff else False, axis=1)
+
+    # Now filter out everything that failed poisson cutoff.
+    df = df.query("L_pass == True | R_pass == True")
+
+    # Now remove sites that have no oppositely-oriented passing site nearby.
+    df = misc.keep_sites_with_nearby_mates1(df, min_softclip_pair_distance, max_softclip_pair_distance)
+
+    df = df.loc[:, ['contig', 'site', 'L_count', 'R_count', 'L_pval', 'R_pval', 'L_pass', 'R_pass']]
+    df = df.sort_values(['contig', 'site'])
     df = df.reset_index(drop=True)
 
     return df
@@ -127,7 +148,7 @@ def right_softclip_length(read):
     return read.cigartuples[-1][1]
 
 def left_softclip_site(read):
-    return (read.reference_name, read.get_reference_positions()[0] - 1)
+    return read.reference_name, read.get_reference_positions()[0] - 1
 
 def right_softclip_site(read):
-    return (read.reference_name, read.get_reference_positions()[-1] + 1)
+    return read.reference_name, read.get_reference_positions()[-1] + 1

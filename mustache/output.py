@@ -1,5 +1,4 @@
 import pysam
-from os.path import join
 from mustache.bwa_tools import samtools_sort_coordinate, samtools_index
 import sys
 from snakemake import shell
@@ -113,7 +112,6 @@ def stats_dataframe_to_gff3(df, outdir, output_prefix):
                                           '.', '.', 'RIGHT_ASSEMBLY={right};LEFT_ASSEMBLY={left};MERGED_ASSEMBLY={merged}\n'.format(
                                         left=left_assembly, right=right_assembly, merged=merged_assembly)])))
 
-
 def write_sequence(sequence, name, out_path):
     record = SeqRecord(Seq(sequence, IUPAC.IUPACUnambiguousDNA), id=name, description=name)
 
@@ -130,3 +128,11 @@ def merge_bams_in_directory(direc, out_bam):
 
 def dataframe_to_stdout(df):
     df.to_csv(sys.stdout, index=False, sep='\t')
+
+
+def write_reads_to_fasta(reads, fasta, name_index=0, seq_index=1):
+
+    with open(fasta, 'w') as outfasta:
+        for r in reads:
+            outfasta.write(">" + r[name_index] + '\n')
+            outfasta.write(r[seq_index] + '\n')

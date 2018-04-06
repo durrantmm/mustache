@@ -1,28 +1,12 @@
 import sys
 from mustache import alignment_tools
 from mustache import misc
+from collections import defaultdict
+from Bio import SeqIO
 
-def get_softclipped_reads_at_site(bam_file, contig, site, revcomp_left=False):
-
+def get_left_softclipped_reads_at_site(bam_file, contig, left_site, revcomp_left=False):
     left_softclipped_reads = []
-    right_softclipped_reads = []
 
-    left_site = site[0]
-    right_site = site[1]
-
-    # First the right softclipped reads.
-    for pu in bam_file.pileup(contig, right_site-1, right_site, truncate=True):
-
-        for pr in pu.pileups:
-            read = pr.alignment
-            if is_right_softclipped(read) and right_softclipped_site(read) == right_site:
-                read_tuple = ( read.query_name, read.query_sequence, right_softclipped_sequence(read) )
-                right_softclipped_reads.append(read_tuple)
-
-    # Now the left softclipped reads:
-    softclipped_reads = []
-
-    left_site = site[0]
     for pu in bam_file.pileup(contig, left_site + 1, left_site + 2, truncate=True):
 
         for pr in pu.pileups:
@@ -38,24 +22,49 @@ def get_softclipped_reads_at_site(bam_file, contig, site, revcomp_left=False):
                 read_tuple = (read.query_name, read_full_seq, read_softclip_seq)
                 left_softclipped_reads.append(read_tuple)
 
-    return left_softclipped_reads, right_softclipped_reads
+    return left_softclipped_reads
 
 
-def unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_distance):
+def get_right_softclipped_reads_at_site(bam_file, contig, right_site, revcomp_left):
+
+    right_softclipped_reads = []
+    # First the right softclipped reads.
+    for pu in bam_file.pileup(contig, right_site-1, right_site, truncate=True):
+
+        for pr in pu.pileups:
+            read = pr.alignment
+            if is_right_softclipped(read) and right_softclipped_site(read) == right_site:
+                read_tuple = ( read.query_name, read.query_sequence, right_softclipped_sequence(read) )
+                right_softclipped_reads.append(read_tuple)
+
+    return right_softclipped_reads
+
+
+def get_left_unmapped_reads_in_flanks(bam_file, contig, left_site, flank_length, max_mapping_distance):
     left_unmapped_reads = []
-    right_unmapped_reads = []
 
-    left_site = site[0]
-    right_site = site[1]
+    left_flank_start = left_site + 1
+    left_flank_end = left_site + 1 + flank_length
+
+    # Now the left site
+    for read in bam_file.fetch(contig, left_flank_start, left_flank_end):
+
+        if read.is_reverse and (read.tlen == 0 or abs(read.tlen) > max_mapping_distance):
+            read_tuple = (read.query_name, read.get_tag('MT'))
+            left_unmapped_reads.append(read_tuple)
+
+    return left_unmapped_reads
+
+
+def get_right_unmapped_reads_in_flanks(bam_file, contig, right_site, flank_length, max_mapping_distance):
+
+    right_unmapped_reads = []
 
     right_flank_start = right_site - flank_length
     right_flank_end = right_site
 
     if right_flank_start < 0:
         right_flank_start = 0
-
-    left_flank_start = left_site + 1
-    left_flank_end = left_site + 1 + flank_length
 
     # First the right site...
     for read in bam_file.fetch(contig, right_flank_start, right_flank_end):
@@ -64,15 +73,7 @@ def unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_d
             read_tuple = ( read.query_name, read.get_tag('MT') )
             right_unmapped_reads.append(read_tuple)
 
-    # Now the left site
-    for read in bam_file.fetch(contig, left_flank_start, left_flank_end):
-
-        if read.is_reverse and (read.tlen == 0 or abs(read.tlen) > max_mapping_distance):
-            read_tuple = ( read.query_name, read.get_tag('MT') )
-            left_unmapped_reads.append(read_tuple)
-
-
-    return left_unmapped_reads, right_unmapped_reads
+    return right_unmapped_reads
 
 
 def get_direct_inseq_reads(bam_file, contig, site, right_assembly, left_assembly):
@@ -410,3 +411,167 @@ def clip_read_at_left_site(read, left_site):
 
 def read_runs_through_site(read, left_site, right_site):
     return get_first_unclipped_reference_position(read) <= left_site and get_last_unclipped_reference_position(read) >= right_site
+
+def get_most_common_start_site(bam_file):
+
+    site_counts = defaultdict(int)
+
+    for r in bam_file:
+        if r.is_unmapped:
+            continue
+        if r.reference_start != r.reference_end - 1:
+            site_counts[(r.reference_name, r.reference_start)] += 1
+            site_counts[(r.reference_name, r.reference_end - 1)] += 1
+        else:
+            site_counts[(r.reference_name, r.reference_start)] += 1
+
+    try:
+        most_common_site = max(list(dict(site_counts).items()), key=lambda x: x[1])[0]
+    except ValueError:
+        return None
+
+    return most_common_site, site_counts[most_common_site]
+
+
+def retrieve_flanking_sequence(fasta_file, bam_file, orientation):
+    most_common_start_site = get_most_common_start_site(bam_file)
+
+    if not most_common_start_site:
+        return None
+
+    start_site = most_common_start_site[0]
+
+    alignment_orientation = get_most_common_orientation_at_site(bam_file, start_site[0], start_site[1])
+
+    fasta = SeqIO.parse(fasta_file, format='fasta')
+
+    match_rec = None
+    for rec in fasta:
+        if rec.name == start_site[0]:
+            match_rec = rec
+            break
+
+    if orientation == 'R':
+        if alignment_orientation == "FORWARD":
+            return str(match_rec.seq)[start_site[1]:].upper()
+        elif alignment_orientation == "REVERSE":
+            return misc.revcomp(str(match_rec.seq)[:(start_site[1] + 1)]).upper()
+        else:
+            return None
+
+    elif orientation == "L":
+        if alignment_orientation == "FORWARD":
+            return misc.revcomp(str(match_rec.seq)[start_site[1]:]).upper()
+        elif alignment_orientation == "REVERSE":
+            return str(match_rec.seq)[:(start_site[1] + 1)].upper()
+        else:
+            return None
+
+
+def retrieve_merged_assembly(assembly, left_bam, right_bam):
+
+    most_common_left_start_site = get_most_common_start_site(left_bam)
+    most_common_right_start_site = get_most_common_start_site(right_bam)
+
+    if not most_common_left_start_site or not most_common_right_start_site:
+        return None
+
+    left_start_site, left_start_count = most_common_left_start_site
+    right_start_site, right_start_count = most_common_right_start_site
+
+    left_contig, left_site = left_start_site
+    right_contig, right_site = right_start_site
+
+    if left_contig != right_contig:
+        return None
+    else:
+        fasta = SeqIO.parse(assembly, format='fasta')
+
+        match_contig = None
+        for rec in fasta:
+            if rec.name == left_contig:
+                match_contig = str(rec.seq)
+                break
+
+        if left_site < right_site:
+            left_orientation = get_most_common_orientation_at_site(left_bam, left_contig, left_site)
+            right_orientation = get_most_common_orientation_at_site(right_bam, right_contig, right_site)
+
+            if left_orientation == "FORWARD" and right_orientation == "REVERSE":
+                return match_contig[left_site:(right_site+1)]
+            else:
+                return None
+
+        elif left_site > right_site:
+            left_orientation = get_most_common_orientation_at_site(left_bam, left_contig, left_site)
+            right_orientation = get_most_common_orientation_at_site(right_bam, right_contig, right_site)
+
+            if left_orientation == "REVERSE" and right_orientation == "FORWARD":
+                return match_contig[right_site:(left_site + 1)]
+            else:
+                return None
+
+        else:
+            print("WEIRD MERGING ISSUE")
+        sys.exit()
+
+
+def get_most_common_orientation_at_site(bam_file, contig, site):
+    reverse_count = 0
+    forward_count = 0
+
+    total_count = 0
+    for pu in bam_file.pileup(contig, site, site + 1, truncate=True):
+
+        for pr in pu.pileups:
+            total_count += 1
+            read = pr.alignment
+            if read.is_reverse:
+                reverse_count += 1
+            else:
+                forward_count += 1
+
+    if forward_count > reverse_count:
+        return "FORWARD"
+    elif forward_count < reverse_count:
+        return "REVERSE"
+    else:
+        print ("WEIRD READ ORIENTATION ISSUE in bam_tools.py")
+        sys.exit()
+
+
+def get_inserted_genome(genome, contig, site, orientation, flank_assembly, flank_length):
+
+    if orientation == 'L':
+        inserted_genome = flank_assembly + genome[(site+1):(site+1+flank_length)]
+    elif orientation == 'R':
+        inserted_genome = genome[(site-flank_length):site] + flank_assembly
+
+    return inserted_genome
+
+
+def get_inseq_overlapping_read_count(bam_file, flank_length, orientation):
+
+    unique_reads = set()
+
+    if orientation == 'L':
+        for read in bam_file:
+            if read.is_unmapped:
+                continue
+            if read.reference_start < flank_length:
+                unique_reads.add(read.query_name)
+
+    elif orientation == 'R':
+
+        contig_length = bam_file.header['SQ'][0]['LN']
+
+        for read in bam_file:
+            if read.is_unmapped:
+                continue
+
+            if read.reference_end >= contig_length - flank_length:
+                unique_reads.add(read.query_name)
+
+    read_count = len(unique_reads)
+    return(read_count)
+
