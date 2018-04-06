@@ -1,54 +1,82 @@
 name: mustache
 channels:
-- bioconda
-- defaults
+  - bioconda
+  - defaults
 dependencies:
-- bwa=0.7.15=1
-- samtools=1.6=0
-- bzip2=1.0.6=h6d464ef_2
-- ca-certificates=2017.08.26=h1d4fec5_0
-- certifi=2017.11.5=py36hf29ccca_0
-- curl=7.54.1=0
-- expat=2.2.5=he0dffb1_0
-- git=2.11.1=0
-- krb5=1.13.2=0
-- libedit=3.1=heed3624_0
-- libffi=3.2.1=hd88cf55_4
-- libgcc=7.2.0=h69d50b8_2
-- libgcc-ng=7.2.0=h7cc24e2_2
-- libssh2=1.8.0=h2d05a93_3
-- libstdcxx-ng=7.2.0=h7a57d05_2
-- ncurses=6.0=h9df7e31_2
-- openssl=1.0.2n=hb7f436b_0
-- perl=5.26.0=hae598fd_0
-- pip=9.0.1=py36h6c6f9ce_4
-- python=3.6.2=0
-- readline=6.2=2
-- setuptools=38.4.0=py36_0
-- sqlite=3.13.0=0
-- tk=8.5.18=0
-- wheel=0.30.0=py36hfd4bba0_1
-- xz=5.2.3=h55aa19d_2
-- zlib=1.2.8=3
-- pip:
-  - appdirs==1.4.3
-  - biopython==1.70
-  - chardet==3.0.4
-  - click==6.7
-  - configargparse==0.12.0
-  - idna==2.6
-  - numpy==1.14.0
-  - pandas==0.22.0
-  - patsy==0.5.0
-  - pysam==0.13
-  - python-dateutil==2.6.1
-  - pytz==2017.3
-  - pyyaml==3.12
-  - ratelimiter==1.2.0.post0
-  - requests==2.18.4
-  - scipy==1.0.0
-  - six==1.11.0
-  - snakemake==4.5.0
-  - statsmodels==0.8.0
-  - urllib3==1.22
-  - wrapt==1.10.11
+  - amos=3.1.0=py35_3
+  - bwa=0.7.15=1
+  - jellyfish=2.2.6=0
+  - mummer=3.23=4
+  - perl-dbi=1.636=0
+  - perl-digest-hmac=1.03=0
+  - perl-encode-locale=1.05=3
+  - perl-exporter-tiny=0.042=1
+  - perl-file-listing=6.04=0
+  - perl-html-parser=3.72=0
+  - perl-html-tagset=3.20=0
+  - perl-http-cookies=6.01=0
+  - perl-http-daemon=6.01=0
+  - perl-http-date=6.02=0
+  - perl-http-message=6.11=0
+  - perl-http-negotiate=6.01=0
+  - perl-io-html=1.001=0
+  - perl-io-socket-ssl=2.024=0
+  - perl-libwww-perl=6.15=0
+  - perl-list-moreutils=0.413=1
+  - perl-lwp-mediatypes=6.02=0
+  - perl-net-http=6.09=0
+  - perl-net-ssleay=1.74=0
+  - perl-ntlm=1.09=1
+  - perl-statistics-descriptive=3.0612=0
+  - perl-threaded=5.22.0=10
+  - perl-uri=1.71=0
+  - perl-www-robotrules=6.02=0
+  - perl-xml-parser=2.44=4
+  - samtools=1.7=1
+  - bzip2=1.0.6=h9a117a8_4
+  - ca-certificates=2018.03.07=0
+  - certifi=2018.1.18=py35_0
+  - curl=7.59.0=h84994c4_0
+  - expat=2.2.5=he0dffb1_0
+  - libcurl=7.59.0=h1ad7b7a_0
+  - libedit=3.1=heed3624_0
+  - libffi=3.2.1=hd88cf55_4
+  - libgcc=7.2.0=h69d50b8_2
+  - libgcc-ng=7.2.0=hdf63c60_3
+  - libssh2=1.8.0=h9cfc8f7_4
+  - libstdcxx-ng=7.2.0=hdf63c60_3
+  - ncurses=6.0=h9df7e31_2
+  - openssl=1.0.2o=h20670df_0
+  - pip=9.0.3=py35_0
+  - python=3.5.5=hc3d631a_1
+  - readline=7.0=ha6073c6_4
+  - setuptools=39.0.1=py35_0
+  - sqlite=3.22.0=h1bed415_0
+  - tk=8.6.7=hc745277_3
+  - wheel=0.31.0=py35_0
+  - xz=5.2.3=h55aa19d_2
+  - zlib=1.2.11=ha838bed_2
+  - pip:
+    - appdirs==1.4.3
+    - biopython==1.71
+    - chardet==3.0.4
+    - click==6.7
+    - configargparse==0.13.0
+    - datrie==0.7.1
+    - idna==2.6
+    - mustache==0.1
+    - numpy==1.14.2
+    - pandas==0.22.0
+    - patsy==0.5.0
+    - pysam==0.13
+    - python-dateutil==2.7.2
+    - pytz==2018.3
+    - pyyaml==3.12
+    - ratelimiter==1.2.0.post0
+    - requests==2.18.4
+    - scipy==1.0.1
+    - six==1.11.0
+    - snakemake==4.8.0
+    - statsmodels==0.8.0
+    - urllib3==1.22
+    - wrapt==1.10.11

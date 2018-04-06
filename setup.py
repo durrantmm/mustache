@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mustache",
-    version='0.1',
+    version='0.1.1',
     description='Tool to identify insertion sequences from whole-genome sequencing data.',
     url='https://github.com/durrantmm/mustache',
     author="Matt Durrant",

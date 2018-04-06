@@ -22,7 +22,7 @@ This is a step that must be repeated whenever using mustache from within this en
 
 Now install mustache from with the command
 
-    pip install .
+    pip install --editable .
     
 Once complete, you can check to see if mustache installed properly by simply typing
 
@@ -49,7 +49,7 @@ and the number of reads from the sample supporting the observation.
  
 The command is run as
 
-    mustache find (paired|single) [OPTIONS] BAM_FILE OUTPUT_PREFIX
+    mustache find (paired|single) [OPTIONS] BAM_FILE GENOME OUTPUT_PREFIX
 
 The default options are designed for genomes with 10x coverage, they may need to be adjusted for samples with significantly
 higher or lower depth.
