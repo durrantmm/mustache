@@ -40,8 +40,37 @@ def write_site_reads(reads, bam_file, outdir, output_prefix, suffix=None, sort_a
 
 
 def write_final_dataframe(df, outdir, output_prefix):
-    outfile_name = join(outdir, output_prefix) + '.stats.tsv'
+    outfile_name = join(outdir, output_prefix) + '.insertions_seqs.tsv'
     df.to_csv(outfile_name, index=False, sep='\t')
+
+def write_final_dataframe_to_fasta(df, outdir, output_prefix):
+
+    outfile_name = join(outdir, output_prefix) + '.insertions_seqs.fasta'
+
+    out_sequences = []
+    for index, row in df.iterrows():
+        contig = row['contig']
+        site = str(row['site']).replace(';','_')
+        read_counts = str(row['inseq_read_count']).replace(';', '_')
+        assembly_length = row['assembly_length']
+        assembly = row['assembly']
+        partner_site = row['partner_site']
+
+        if row['orientation'] == 'M':
+            name = '_'.join(map(str, [contig, site, 'MERGED', 'readcount', read_counts, 'length', assembly_length]))
+        else:
+            if row['orientation'] == 'L':
+                name = '_'.join(map(str, [contig, site, 'LEFT_FLANK', 'partner', partner_site, 'readcount', read_counts, 'length', assembly_length]))
+            else:
+                name = '_'.join(map(str, [contig, site, 'RIGHT_FLANK', 'partner', partner_site, 'readcount', read_counts, 'length', assembly_length]))
+
+        record = SeqRecord(Seq(assembly, IUPAC.IUPACAmbiguousDNA),
+                           id=name, description=name)
+
+        out_sequences.append(record)
+
+    with open(outfile_name, 'w') as output_handle:
+        SeqIO.write(out_sequences, output_handle, 'fasta')
 
 
 def stats_dataframe_to_fasta(df, outdir, output_prefix):

@@ -234,8 +234,6 @@ def prioritize_site_pairs(site_pairs):
         if (contig, left_site) in keep_sites or (contig, right_site) in keep_sites:
             continue
 
-        merged_len, count_diff, total_count = row['merged_assembly_length'], row['count_diff'], row['total_count']
-
         keep_sites.add((contig, left_site))
         keep_sites.add((contig, right_site))
 
@@ -243,15 +241,57 @@ def prioritize_site_pairs(site_pairs):
 
     final_keep_pairs = None
     for contig, left_site, right_site in keep_pairs:
-        pair = site_pairs.query('contig == "{contig}" & left_site == {left_site} & right_site== {right_site}'.format(
+        pair = site_pairs.query('contig == "{contig}" & left_site == {left_site} & right_site == {right_site}'.format(
             contig=contig, left_site=left_site, right_site=right_site
         ))
 
         if final_keep_pairs is None:
             final_keep_pairs = pair
         else:
-            pd.concat([final_keep_pairs, pair])
+            final_keep_pairs = pd.concat([final_keep_pairs, pair])
 
     return final_keep_pairs
 
+
+def create_final_output_table(assembled_flanks, priority_site_pairs):
+
+    final_table = None
+    for index, row in priority_site_pairs.iterrows():
+        contig, left_site, right_site = row['contig'], row['left_site'], row['right_site']
+        left_inseq_count, right_inseq_count = row['left_inseq_read_count'], row['right_inseq_read_count']
+        merged_assembly = row['merged_assembly']
+
+        if merged_assembly:
+            out_dict = OrderedDict([
+                ('contig', [contig]),
+                ('site', [';'.join(map(str, [left_site, right_site]))]),
+                ('orientation', ['M']),
+                ('partner_site', [None]),
+                ('inseq_read_count', [';'.join(map(str, [left_inseq_count, right_inseq_count]))]),
+                ('assembly_length', [len(merged_assembly)]),
+                ('assembly', [merged_assembly])
+            ])
+        else:
+            left_flank_assembly = assembled_flanks.query("site == @left_site").reset_index(drop=True).at[0,'flank_assembly']
+            right_flank_assembly = assembled_flanks.query("site == @right_site  ").reset_index(drop=True).at[0,'flank_assembly']
+
+            print(left_flank_assembly)
+            print(right_flank_assembly)
+
+            out_dict = OrderedDict([
+                ('contig', [contig, contig]),
+                ('site', [left_site, right_site]),
+                ('orientation', ['L','R']),
+                ('partner_site', [right_site, left_site]),
+                ('inseq_read_count', [left_inseq_count, right_inseq_count]),
+                ('assembly_length', [len(left_flank_assembly), len(right_flank_assembly)]),
+                ('assembly', [left_flank_assembly, right_flank_assembly])
+            ])
+
+        if final_table is None:
+            final_table = pd.DataFrame(out_dict)
+        else:
+            final_table = pd.concat([final_table, pd.DataFrame(out_dict)])
+
+    return final_table.sort_values(['contig', 'site']).reset_index(drop=True)
 

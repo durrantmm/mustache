@@ -5,6 +5,7 @@ from scipy.stats import poisson
 import numpy as np
 import click
 
+
 def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, min_softclip_count, min_softclip_pair_distance, max_softclip_pair_distance):
 
     soft_clips = defaultdict(lambda: defaultdict(set))

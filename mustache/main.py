@@ -1,7 +1,7 @@
 import sys
 import click
 import pysam
-from mustache import bwa_tools, identify_candidate_sites, inseq_site_processor, misc
+from mustache import bwa_tools, identify_candidate_sites, inseq_site_processor, misc, output
 from os.path import join, basename, dirname, isdir
 import os, sys
 import pandas as pd
@@ -250,19 +250,26 @@ def find_paired(bam_file, genome_fasta, output_prefix, outdir, contig, start, st
     assembled_flanks_df = misc.keep_sites_with_nearby_mates2(assembled_flanks_df, min_softclip_pair_distance, max_softclip_pair_distance)
     assembled_flanks_df.reset_index(drop=True, inplace=True)
 
-    print(assembled_flanks_df)
+    click.echo()
+    click.echo("Initial Assembled Flanks:")
+    click.echo(assembled_flanks_df)
 
     site_pairs = inseq_site_processor.determine_site_pairs(assembled_flanks_df, bam_file, genome_fasta, min_softclip_pair_distance, max_softclip_pair_distance, outdir)
 
-    print()
-    print(site_pairs)
-
     priority_site_pairs = inseq_site_processor.prioritize_site_pairs(site_pairs)
 
-    print()
-    print(priority_site_pairs)
+    final_table = inseq_site_processor.create_final_output_table(assembled_flanks_df, priority_site_pairs)
+
+    click.echo()
+    click.echo("FINAL INSERTION SEQUENCE TABLE:")
+    click.echo(final_table)
+
+    output.write_final_dataframe(final_table, outdir, output_prefix)
+    output.write_final_dataframe_to_fasta(final_table, outdir, output_prefix)
 
 
+
+# Now set up the click arguments
 align.add_command(align_paired)
 align.add_command(align_single)
 
@@ -270,6 +277,7 @@ find.add_command(find_paired)
 
 cli.add_command(align)
 cli.add_command(find)
+
 
 if __name__ == '__main__':
     cli()
