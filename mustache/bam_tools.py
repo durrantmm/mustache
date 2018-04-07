@@ -512,8 +512,8 @@ def retrieve_merged_assembly(assembly, left_bam, right_bam):
                 return None
 
         else:
-            print("WEIRD MERGING ISSUE")
-        sys.exit()
+            return None
+
 
 
 def get_most_common_orientation_at_site(bam_file, contig, site):

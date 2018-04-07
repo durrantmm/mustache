@@ -5,7 +5,7 @@ import pandas as pd
 from os.path import join
 from mustache.bam_tools import *
 from mustache.bwa_tools import *
-from mustache.assemble_tools import MinimusAssembler
+from mustache.assemble_tools import MinimusAssembler, Minimus2Merger
 
 pd.set_option('display.max_rows', 1000)
 pd.set_option('display.max_columns', 1000)
@@ -88,7 +88,7 @@ def get_flank_assembly(bam_file, contig, site, orientation, softclipped_reads, u
     flank_assembly = retrieve_flanking_sequence(output_assembly, pysam.AlignmentFile(tmp_sc_alignment, 'r'), orientation)
 
     click.echo('\tDeleting tmp files...')
-    shell("rm {tmp_sc_fasta} {tmp_sc_alignment}*;")
+    shell("rm -f {output_assembly}* {tmp_sc_fasta} {tmp_sc_alignment}*;")
     assembler.delete_files()
 
     return flank_assembly
@@ -203,10 +203,9 @@ def attempt_flank_merge(genome, contig, left_site, right_site, left_flank, right
     output.write_reads_to_fasta(left_softclipped_reads, tmp_left_sc_fasta, seq_index=2)
     output.write_reads_to_fasta(right_softclipped_reads, tmp_right_sc_fasta, seq_index=2)
 
-    unique_kmers = misc.get_unique_kmers([left_flank, right_flank], k=41)
-
-    assembler = MinimusAssembler(unique_kmers, outdir, site_name)
+    assembler = Minimus2Merger([left_flank, right_flank], outdir, site_name)
     output_assembly = assembler.assemble()
+    sys.exit()
 
     index_genome(output_assembly, silence=True)
     bwa_aln_to_genome_single(tmp_left_sc_fasta, output_assembly, tmp_left_sc_alignment, silence=True)
@@ -216,7 +215,8 @@ def attempt_flank_merge(genome, contig, left_site, right_site, left_flank, right
                                                pysam.AlignmentFile(tmp_left_sc_alignment, 'rb'),
                                                pysam.AlignmentFile(tmp_right_sc_alignment, 'rb'))
 
-    shell("rm {tmp_left_sc_fasta} {tmp_right_sc_fasta} {tmp_left_sc_alignment}* {tmp_right_sc_alignment}*;")
+    shell("rm -f {output_assembly}* {tmp_left_sc_fasta} {tmp_right_sc_fasta} "
+          "{tmp_left_sc_alignment}* {tmp_right_sc_alignment}*;")
     assembler.delete_files()
 
     return merged_assembly
@@ -274,9 +274,6 @@ def create_final_output_table(assembled_flanks, priority_site_pairs):
         else:
             left_flank_assembly = assembled_flanks.query("site == @left_site").reset_index(drop=True).at[0,'flank_assembly']
             right_flank_assembly = assembled_flanks.query("site == @right_site  ").reset_index(drop=True).at[0,'flank_assembly']
-
-            print(left_flank_assembly)
-            print(right_flank_assembly)
 
             out_dict = OrderedDict([
                 ('contig', [contig, contig]),

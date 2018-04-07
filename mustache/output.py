@@ -73,52 +73,6 @@ def write_final_dataframe_to_fasta(df, outdir, output_prefix):
         SeqIO.write(out_sequences, output_handle, 'fasta')
 
 
-def stats_dataframe_to_fasta(df, outdir, output_prefix):
-
-    outfile_name = join(outdir, output_prefix) + '.insertion_seqs.fna'
-    out_sequences = []
-
-    for row in range(len(df)):
-
-        if np.isnan(df.iloc[row,]['merged_assembly_length']):
-
-            contig = df.iloc[row,]['contig']
-            left_site = df.iloc[row,]['left_site']
-            right_site = df.iloc[row,]['right_site']
-
-            right_assembly = df.iloc[row,]['right_assembly']
-            left_assembly = df.iloc[row,]['left_assembly']
-
-            right_assembly_name = '_'.join(map(str, [contig, left_site, right_site, 'right']))
-            left_assembly_name = '_'.join(map(str, [contig, left_site, right_site, 'left']))
-
-            right_assembly_record = SeqRecord(Seq(right_assembly, IUPAC.IUPACUnambiguousDNA),
-                                              id=right_assembly_name, description=right_assembly_name)
-            left_assembly_record = SeqRecord(Seq(left_assembly, IUPAC.IUPACUnambiguousDNA),
-                                             id=left_assembly_name, description=left_assembly_name)
-
-            out_sequences.append(right_assembly_record)
-            out_sequences.append(left_assembly_record)
-
-        elif df.iloc[row,]['merged_assembly_length'] != np.nan:
-
-            contig = df.iloc[row,]['contig']
-            left_site = df.iloc[row,]['left_site']
-            right_site = df.iloc[row,]['right_site']
-
-            merged_assembly = df.iloc[row,]['merged_assembly']
-
-            merged_assembly_name = '_'.join(map(str, [contig, left_site, right_site, 'merged']))
-
-            merged_assembly_record = SeqRecord(Seq(merged_assembly, IUPAC.IUPACUnambiguousDNA),
-                                               id=merged_assembly_name, description=merged_assembly_name)
-
-            out_sequences.append(merged_assembly_record)
-
-    with open(outfile_name, 'w') as output_handle:
-        SeqIO.write(out_sequences, output_handle, 'fasta')
-
-
 def stats_dataframe_to_gff3(df, outdir, output_prefix):
 
     outfile_name = join(outdir, output_prefix) + '.sites.gff3'

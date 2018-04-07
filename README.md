@@ -52,7 +52,10 @@ The command is run as
     mustache find (paired|single) [OPTIONS] BAM_FILE GENOME OUTPUT_PREFIX
 
 The default options are designed for genomes with 10x coverage, they may need to be adjusted for samples with significantly
-higher or lower depth.
+higher or lower depth. 
 
-The final results will be found in the at `OUTPUT_PREFIX/OUTPUT_PREFIX.stats.tsv`, along with several BAM files with the
-relevant aligned reads.
+## `mustache find` output
+The final results will be found in the specified output directory.
+
+    *.insertions_seqs.tsv - Detailed table of insertion sequences identified.
+    *.insertions_seqs.fasta - A fasta file of all the identified insertion sequences.

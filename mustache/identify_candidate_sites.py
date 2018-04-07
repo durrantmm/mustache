@@ -4,6 +4,7 @@ from mustache import misc
 from scipy.stats import poisson
 import numpy as np
 import click
+import sys
 
 
 def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, min_softclip_count, min_softclip_pair_distance, max_softclip_pair_distance):
@@ -99,20 +100,22 @@ def filter_softclip_counts(soft_clip_counts, min_softclip_count, contig_length, 
         L_lambda_large.append(flanks_large.L_count.sum() / (flank_large_upper - flank_large_lower))
         R_lambda_large.append(flanks_large.R_count.sum() / (flank_large_upper - flank_large_lower))
 
+
     df.loc[:,'L_lambda_small'], df.loc[:,'R_lambda_small'] = L_lambda_small, R_lambda_small
     df.loc[:,'L_lambda_int'], df.loc[:,'R_lambda_int'] = L_lambda_int, R_lambda_int
     df.loc[:,'L_lambda_large'], df.loc[:,'R_lambda_large'] = L_lambda_large, R_lambda_large
 
-
-    #print(df)
 
     # Apply the minimum count filter
     df.loc[:,'L_count'] = [c if c >= min_softclip_count else 0 for c in df['L_count']]
     df.loc[:,'R_count'] = [c if c >= min_softclip_count else 0 for c in df['R_count']]
     df = pd.DataFrame(df.query('L_count >= {min_softclip_count} | R_count >= {min_softclip_count}'.format(min_softclip_count=min_softclip_count)))
 
-    # Choosing the maximum lambda
+    if df.shape[0] == 0:
+        print("No insertion sites meet applied cutoffs. Try different parameters.")
+        sys.exit()
 
+    # Choosing the maximum lambda
     df.loc[:,'L_lambda_max'] = df.apply(lambda r: max(r['L_lambda_bg'], r['L_lambda_small'], r['L_lambda_int'], r['L_lambda_large']), axis=1)
     df.loc[:,'R_lambda_max'] = df.apply(lambda r: max(r['R_lambda_bg'], r['R_lambda_small'], r['R_lambda_int'], r['R_lambda_large']), axis=1)
 
@@ -126,6 +129,10 @@ def filter_softclip_counts(soft_clip_counts, min_softclip_count, contig_length, 
     # Now filter out everything that failed poisson cutoff.
     df = df.query("L_pass == True | R_pass == True")
 
+    if df.shape[0] == 0:
+        print("No insertion sites meet applied cutoffs. Try different parameters.")
+        sys.exit()
+
     # Now remove sites that have no oppositely-oriented passing site nearby.
     df = misc.keep_sites_with_nearby_mates1(df, min_softclip_pair_distance, max_softclip_pair_distance)
 
@@ -133,6 +140,10 @@ def filter_softclip_counts(soft_clip_counts, min_softclip_count, contig_length, 
     df = df.sort_values(['contig', 'site'])
     df = df.reset_index(drop=True)
 
+    if df.shape[0] == 0:
+        print("No insertion sites meet applied cutoffs. Try different parameters.")
+        sys.exit()
+        
     return df
 
 

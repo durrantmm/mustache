@@ -156,6 +156,10 @@ def find_paired(bam_file, genome_fasta, output_prefix, outdir, contig, start, st
          min_softclip_pair_distance, max_softclip_pair_distance, max_softclip_count_ratio_deviation,
          max_mapping_distance, flank_length, flank_length_percentile, assembly_kmer_size, min_inseq_read_count, threads):
 
+    if output_prefix.count('/') > 0:
+        click.echo("Output prefix cannot be path to a different directory. Try using --outdir.")
+        sys.exit()
+
     if not outdir:
         outdir = output_prefix
     else:
