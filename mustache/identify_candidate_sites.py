@@ -34,10 +34,17 @@ def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, mi
         click.echo("\tFiltering softclipped sites...")
         soft_clip_counts_filtered = filter_softclip_counts(soft_clip_counts, min_softclip_count, contigs[contig], min_softclip_pair_distance, max_softclip_pair_distance)
 
+        if soft_clip_counts_filtered is None:
+            continue
+
         if all_softclipped_sites is None:
             all_softclipped_sites = soft_clip_counts_filtered
         else:
             all_softclipped_sites = pd.concat([all_softclipped_sites, soft_clip_counts_filtered])
+
+    if all_softclipped_sites is None:
+        click.echo('No insertion sites meet applied cutoffs. Try different parameters.')
+        sys.exit()
 
     return all_softclipped_sites
 
@@ -112,8 +119,7 @@ def filter_softclip_counts(soft_clip_counts, min_softclip_count, contig_length, 
     df = pd.DataFrame(df.query('L_count >= {min_softclip_count} | R_count >= {min_softclip_count}'.format(min_softclip_count=min_softclip_count)))
 
     if df.shape[0] == 0:
-        print("No insertion sites meet applied cutoffs. Try different parameters.")
-        sys.exit()
+        return None
 
     # Choosing the maximum lambda
     df.loc[:,'L_lambda_max'] = df.apply(lambda r: max(r['L_lambda_bg'], r['L_lambda_small'], r['L_lambda_int'], r['L_lambda_large']), axis=1)
@@ -130,8 +136,7 @@ def filter_softclip_counts(soft_clip_counts, min_softclip_count, contig_length, 
     df = df.query("L_pass == True | R_pass == True")
 
     if df.shape[0] == 0:
-        print("No insertion sites meet applied cutoffs. Try different parameters.")
-        sys.exit()
+        return None
 
     # Now remove sites that have no oppositely-oriented passing site nearby.
     df = misc.keep_sites_with_nearby_mates1(df, min_softclip_pair_distance, max_softclip_pair_distance)

@@ -171,8 +171,8 @@ def determine_site_pairs(df, bam_file, genome_fasta, min_pair_distance, max_pair
 
             pair_dict = OrderedDict([
                 ('contig', [contig]),
-                ('left_site', [left_site]),
-                ('right_site', [right_site]),
+                ('left_site', [int(left_site)]),
+                ('right_site', [int(right_site)]),
                 ('left_inseq_read_count', [left_inseq_count]),
                 ('right_inseq_read_count', [right_inseq_count]),
                 ('total_count', [total_count]),
@@ -203,9 +203,14 @@ def attempt_flank_merge(genome, contig, left_site, right_site, left_flank, right
     output.write_reads_to_fasta(left_softclipped_reads, tmp_left_sc_fasta, seq_index=2)
     output.write_reads_to_fasta(right_softclipped_reads, tmp_right_sc_fasta, seq_index=2)
 
-    assembler = Minimus2Merger([left_flank, right_flank], outdir, site_name)
-    output_assembly = assembler.assemble()
-    sys.exit()
+    merger = Minimus2Merger([left_flank, right_flank], outdir, site_name)
+    output_assembly = merger.merge()
+
+    if not output_assembly:
+        shell("rm -f {output_assembly}* {tmp_left_sc_fasta} {tmp_right_sc_fasta} "
+              "{tmp_left_sc_alignment}* {tmp_right_sc_alignment}*;")
+        merger.delete_files()
+        return None
 
     index_genome(output_assembly, silence=True)
     bwa_aln_to_genome_single(tmp_left_sc_fasta, output_assembly, tmp_left_sc_alignment, silence=True)
@@ -217,7 +222,7 @@ def attempt_flank_merge(genome, contig, left_site, right_site, left_flank, right
 
     shell("rm -f {output_assembly}* {tmp_left_sc_fasta} {tmp_right_sc_fasta} "
           "{tmp_left_sc_alignment}* {tmp_right_sc_alignment}*;")
-    assembler.delete_files()
+    merger.delete_files()
 
     return merged_assembly
 
@@ -257,17 +262,20 @@ def create_final_output_table(assembled_flanks, priority_site_pairs):
 
     final_table = None
     for index, row in priority_site_pairs.iterrows():
-        contig, left_site, right_site = row['contig'], row['left_site'], row['right_site']
-        left_inseq_count, right_inseq_count = row['left_inseq_read_count'], row['right_inseq_read_count']
+        contig, left_site, right_site = row['contig'], int(row['left_site']), int(row['right_site'])
+        left_inseq_count, right_inseq_count = int(row['left_inseq_read_count']), int(row['right_inseq_read_count'])
         merged_assembly = row['merged_assembly']
 
         if merged_assembly:
             out_dict = OrderedDict([
                 ('contig', [contig]),
-                ('site', [';'.join(map(str, [left_site, right_site]))]),
+                ('site', [left_site]),
+                ('left_site', [left_site]),
+                ('right_site', [right_site]),
                 ('orientation', ['M']),
-                ('partner_site', [None]),
-                ('inseq_read_count', [';'.join(map(str, [left_inseq_count, right_inseq_count]))]),
+                ('partner_site', [-1]),
+                ('left_site_read_count', [left_inseq_count]),
+                ('right_site_read_count', [right_inseq_count]),
                 ('assembly_length', [len(merged_assembly)]),
                 ('assembly', [merged_assembly])
             ])
@@ -278,9 +286,12 @@ def create_final_output_table(assembled_flanks, priority_site_pairs):
             out_dict = OrderedDict([
                 ('contig', [contig, contig]),
                 ('site', [left_site, right_site]),
+                ('left_site', [left_site, -1]),
+                ('right_site', [-1, right_site]),
                 ('orientation', ['L','R']),
                 ('partner_site', [right_site, left_site]),
-                ('inseq_read_count', [left_inseq_count, right_inseq_count]),
+                ('left_site_read_count', [left_inseq_count, -1]),
+                ('right_site_read_count', [-1, right_inseq_count]),
                 ('assembly_length', [len(left_flank_assembly), len(right_flank_assembly)]),
                 ('assembly', [left_flank_assembly, right_flank_assembly])
             ])
@@ -290,5 +301,5 @@ def create_final_output_table(assembled_flanks, priority_site_pairs):
         else:
             final_table = pd.concat([final_table, pd.DataFrame(out_dict)])
 
-    return final_table.sort_values(['contig', 'site']).reset_index(drop=True)
+    return final_table.sort_values(['contig', 'site']).reset_index(drop=True).drop(columns=['site'])
 

@@ -3,7 +3,6 @@ from mustache.bwa_tools import samtools_sort_coordinate, samtools_index
 import sys
 from snakemake import shell
 from os.path import isfile
-import numpy as np
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -27,6 +26,7 @@ def write_site_reads(reads, bam_file, outdir, output_prefix, suffix=None, sort_a
 
         samtools_sort_coordinate(tmp_outfile_name, outfile_name, delete_in_bam=True)
         samtools_index(outfile_name)
+
     else:
         out_bam = pysam.AlignmentFile(outfile_name, 'wb', template=bam_file)
         for r in reads:
@@ -43,26 +43,33 @@ def write_final_dataframe(df, outdir, output_prefix):
     outfile_name = join(outdir, output_prefix) + '.insertions_seqs.tsv'
     df.to_csv(outfile_name, index=False, sep='\t')
 
+
 def write_final_dataframe_to_fasta(df, outdir, output_prefix):
 
     outfile_name = join(outdir, output_prefix) + '.insertions_seqs.fasta'
 
     out_sequences = []
     for index, row in df.iterrows():
+
         contig = row['contig']
-        site = str(row['site']).replace(';','_')
-        read_counts = str(row['inseq_read_count']).replace(';', '_')
+        left_site = row['left_site']
+        right_site = row['right_site']
+        left_read_counts = row['left_site_read_count']
+        right_read_counts = row['right_site_read_count']
         assembly_length = row['assembly_length']
         assembly = row['assembly']
         partner_site = row['partner_site']
 
         if row['orientation'] == 'M':
-            name = '_'.join(map(str, [contig, site, 'MERGED', 'readcount', read_counts, 'length', assembly_length]))
+            name = '_'.join(map(str, [contig, int(left_site), int(right_site), 'MERGED', 'readcount',
+                                      int(left_read_counts), int(right_read_counts), 'length', int(assembly_length)]))
         else:
             if row['orientation'] == 'L':
-                name = '_'.join(map(str, [contig, site, 'LEFT_FLANK', 'partner', partner_site, 'readcount', read_counts, 'length', assembly_length]))
+                name = '_'.join(map(str, [contig, int(left_site), 'LEFT_FLANK', 'partner', int(partner_site),
+                                          'readcount', int(left_read_counts), 'length', int(assembly_length)]))
             else:
-                name = '_'.join(map(str, [contig, site, 'RIGHT_FLANK', 'partner', partner_site, 'readcount', read_counts, 'length', assembly_length]))
+                name = '_'.join(map(str, [contig, int(right_site), 'RIGHT_FLANK', 'partner', int(partner_site),
+                                          'readcount', int(right_read_counts), 'length', int(assembly_length)]))
 
         record = SeqRecord(Seq(assembly, IUPAC.IUPACAmbiguousDNA),
                            id=name, description=name)
@@ -94,6 +101,7 @@ def stats_dataframe_to_gff3(df, outdir, output_prefix):
             out.write('\t'.join(map(str, [contig, 'mustache', 'insertion_site', left_site+2, right_site, name, '.',
                                           '.', '.', 'RIGHT_ASSEMBLY={right};LEFT_ASSEMBLY={left};MERGED_ASSEMBLY={merged}\n'.format(
                                         left=left_assembly, right=right_assembly, merged=merged_assembly)])))
+
 
 def write_sequence(sequence, name, out_path):
     record = SeqRecord(Seq(sequence, IUPAC.IUPACUnambiguousDNA), id=name, description=name)
