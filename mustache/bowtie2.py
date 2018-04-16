@@ -5,7 +5,7 @@ import click
 
 def index_genome(genome_path, silence=False):
     if silence:
-        shell('bowtie2-build -o 1 -q {genome_path} {genome_path} 2> junk; rm junk'.format(genome_path=genome_path))
+        shell('bowtie2-build -o 1 -q {genome_path} {genome_path} 2> /dev/null;'.format(genome_path=genome_path))
     else:
         shell('bowtie2-build -o 1 {genome_path} {genome_path}'.format(genome_path=genome_path))
 
@@ -34,19 +34,21 @@ def genome_is_indexed(genome_path):
 def align_fasta_to_genome(fasta, genome_path, out_bam, threads=1, silence=False):
 
     if silence:
-        command = "bowtie2 --very-fast-local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam 2> junk; " \
-                  "samtools view -h -q 1 {out_bam}.sam 2> junk 1> {out_bam}.sam.tmp; " \
-                  "samtools sort {out_bam}.sam.tmp 2> junk 1> {out_bam}; " \
-                  "samtools index {out_bam} 2> junk;" \
-                  "rm junk {out_bam}.sam {out_bam}.sam.tmp".format(
+        command = "rm -f {out_bam}.sam {out_bam}.sam.tmp; " \
+                  "bowtie2 --very-fast-local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam 2> /dev/null; " \
+                  "samtools view -h -q 1 {out_bam}.sam 2> /dev/null 1> {out_bam}.sam.tmp; " \
+                  "samtools sort {out_bam}.sam.tmp 2> /dev/null 1> {out_bam}; " \
+                  "samtools index {out_bam} 2> /dev/null;" \
+                  "rm -f {out_bam}.sam {out_bam}.sam.tmp".format(
             genome_path=genome_path, fasta=fasta, out_bam=out_bam, threads=threads)
 
     else:
-        command = "bowtie2 --local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam; " \
+        command = "rm -f {out_bam}.sam {out_bam}.sam.tmp; " \
+                  "bowtie2 --local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam; " \
                   "samtools view -h -q 1 {out_bam}.sam > {out_bam}.sam.tmp; " \
                   "samtools sort {out_bam}.sam.tmp > {out_bam}; " \
                   "samtools index {out_bam};" \
-                  "rm junk {out_bam}.sam {out_bam}.sam.tmp".format(
+                  "rm -f {out_bam}.sam {out_bam}.sam.tmp".format(
             genome_path=genome_path, fasta=fasta, out_bam=out_bam, threads=threads)
 
 
