@@ -200,8 +200,6 @@ def right_alignment_score(read1, read2):
 
 def get_best_sliding_alignment(query_read, ref_read):
 
-    print("Query Read:", query_read)
-    print("Reference Read:", ref_read)
 
     max_len = min(len(query_read), len(ref_read))
     max_len_query, max_len_ref = False, False
@@ -353,4 +351,4 @@ def merge_flank_assemblies(right_inseq_assembly, left_inseq_assembly, min_overla
             print("I MISSED SOMETHING")
             sys.exit()
 
-    return right_inseq_assembly, left_inseq_assembly, merged_assembly
+    return merged_assembly

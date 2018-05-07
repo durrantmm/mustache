@@ -35,6 +35,7 @@ def process_candidate_site(bam_file, genome, contig, site, orientation, flank_le
                                         unmapped_reads, outdir, site_name)
     if not flank_assembly:
         click.echo("\tFlank assembly failed...")
+
         return None
 
     click.echo("\tFlank Assembly:")
@@ -190,7 +191,8 @@ def determine_site_pairs(df, bam_file, genome_fasta, min_pair_distance, max_pair
     return pairwise_info
 
 
-def attempt_flank_merge(genome, contig, left_site, right_site, left_flank, right_flank, left_softclipped_reads, right_softclipped_reads, outdir, site_name, assembly_kmer_size=11):
+def attempt_flank_merge(genome, contig, left_site, right_site, left_flank, right_flank,
+                        left_softclipped_reads, right_softclipped_reads, outdir, site_name, assembly_kmer_size=11):
 
     tmp_left_sc_fasta = join(outdir, site_name + ".sc.left.flank_merge.fasta")
     tmp_right_sc_fasta = join(outdir, site_name + ".sc.right.flank_merge.fasta")
@@ -204,7 +206,7 @@ def attempt_flank_merge(genome, contig, left_site, right_site, left_flank, right
     output.write_reads_to_fasta(right_softclipped_reads, tmp_right_sc_fasta, seq_index=2)
 
     merger = Minimus2Merger([left_flank, right_flank], outdir, site_name)
-    output_assembly = merger.merge()
+    output_assembly = merger.merge(return_assembly_path=True)
 
     if not output_assembly:
         shell("rm -f {output_assembly}* {tmp_left_sc_fasta} {tmp_right_sc_fasta} "

@@ -1,7 +1,7 @@
 import sys
 import click
 import pysam
-from mustache import bwa_tools, identify_candidate_sites, inseq_site_processor, misc, output
+from mustache import bwa_tools, identify_candidate_sites, inseq_site_processor, misc, output, merge_sites
 from os.path import join, basename, dirname, isdir
 import os, sys
 import pandas as pd
@@ -272,6 +272,42 @@ def find_paired(bam_file, genome_fasta, output_prefix, outdir, contig, start, st
     output.write_final_dataframe_to_fasta(final_table, outdir, output_prefix)
 
 
+@click.command()
+@click.argument('insertion_seqs_tsv', nargs=-1, type=click.Path(exists=True))
+@click.argument('output_prefix')
+@click.option('--filt_min_merged_length', default=50, help="The minimum merged sequence length to keep for downstream analysis.")
+@click.option('--filt_min_flank_length', default=25, help="The minimum merged sequence length to keep for downstream analysis.")
+@click.option('--min_pairwise_identity', default=0.8, help="The minimum pairwise identity percentage to merge sequences.")
+@click.option('--min_softclip_pair_distance', default=0, help="Choose the minimum distance between softclip sites in a pair.")
+@click.option('--max_softclip_pair_distance', default=20, help="Choose the maximum distance between softclip sites in a pair.")
+@click.option('--outdir', help="Indicate the directory where you want to write the output files. Default is the output given output prefix")
+def merge(insertion_seqs_tsv, output_prefix, filt_min_merged_length, filt_min_flank_length, min_pairwise_identity,
+          min_softclip_pair_distance, max_softclip_pair_distance, outdir):
+
+    if output_prefix.count('/') > 0:
+        click.echo("Output prefix cannot be path to a different directory. Try using --outdir.")
+        sys.exit()
+
+    if not outdir:
+        outdir = output_prefix
+    else:
+        outdir = outdir
+
+    click.echo("Making output directory if it doesn't exist...")
+    os.makedirs(outdir, exist_ok=True)
+    if not isdir(outdir):
+        click.echo("Fatal error: Could not create specified directory.")
+        sys.exit()
+
+    if len(insertion_seqs_tsv) == 0:
+        print('Please specify two or more insertion sequence results files (in TSV format).')
+        sys.exit()
+
+    sites = merge_sites.merge(insertion_seqs_tsv, filt_min_merged_length, filt_min_flank_length, min_pairwise_identity,
+                              min_softclip_pair_distance, max_softclip_pair_distance, output_prefix, outdir)
+    sites = sites.sort_values(['contig', 'left_site', 'right_site'])
+    output.dataframe_to_stdout(sites)
+
 
 # Now set up the click arguments
 align.add_command(align_paired)
@@ -281,6 +317,7 @@ find.add_command(find_paired)
 
 cli.add_command(align)
 cli.add_command(find)
+cli.add_command(merge)
 
 
 if __name__ == '__main__':

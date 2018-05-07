@@ -27,7 +27,7 @@ def genome_is_indexed(genome_path):
 
 def index_genome(genome_path, silence=False):
     if silence:
-        shell('bwa index {genome_path} 2> junk; rm -f junk'.format(genome_path=genome_path))
+        shell('bwa index {genome_path} 2> /dev/null;'.format(genome_path=genome_path))
     else:
         shell('bwa index {genome_path}'.format(genome_path=genome_path))
 
@@ -57,31 +57,55 @@ def align_to_genome_single(fastq, genome_path, out_sam, additional_flags='', thr
     else:
         return False
 
-def bwa_aln_to_genome_single(fastq, genome_path, out_bam, additional_flags='', threads=1, silence=False):
+def bwa_aln_to_genome_single(fastq, genome_path, out_bam, additional_flags='', threads=1, silence=False, qfilter=True):
     out_sai = out_bam+'.sai'
 
     if silence:
-        command = "bwa aln -t {threads} {additional_flags} {genome_path} {fastq} 2> junk 1> {out_sai}; " \
-                  "bwa samse {genome_path} {out_sai} {fastq} 2> junk 1> {out_bam}.tmp; " \
-                  "rm {out_sai}; " \
-                  "samtools sort {out_bam}.tmp 2> junk 1> {out_bam}; " \
-                  "samtools index {out_bam} 2> junk; " \
-                  "samtools view -h -q 1 {out_bam}.tmp 2> junk 1> {out_bam}.tmp.tmp; " \
-                  "samtools sort {out_bam}.tmp.tmp 2> junk 1> {out_bam}; " \
-                  "samtools index {out_bam}; " \
-                  "rm -f {out_bam}.tmp {out_bam}.tmp.tmp junk".format(
-            genome_path=genome_path, fastq=fastq, out_bam=out_bam, out_sai=out_sai, threads=threads, additional_flags=additional_flags)
+        if qfilter:
+            command = "bwa aln -t {threads} {additional_flags} {genome_path} {fastq} 2> /dev/null 1> {out_sai}; " \
+                      "bwa samse {genome_path} {out_sai} {fastq} 2> /dev/null 1> {out_bam}.tmp; " \
+                      "rm {out_sai}; " \
+                      "samtools sort {out_bam}.tmp 2> /dev/null 1> {out_bam}; " \
+                      "samtools index {out_bam} 2> /dev/null; " \
+                      "samtools view -h -q 1 {out_bam}.tmp 2> /dev/null 1> {out_bam}.tmp.tmp; " \
+                      "samtools sort {out_bam}.tmp.tmp 2> /dev/null 1> {out_bam}; " \
+                      "samtools index {out_bam}; " \
+                      "rm -f {out_bam}.tmp {out_bam}.tmp.tmp".format(
+                genome_path=genome_path, fastq=fastq, out_bam=out_bam, out_sai=out_sai, threads=threads, additional_flags=additional_flags)
+        else:
+            command = "bwa aln -t {threads} {additional_flags} {genome_path} {fastq} 2> /dev/null 1> {out_sai}; " \
+                      "bwa samse {genome_path} {out_sai} {fastq} 2> /dev/null 1> {out_bam}.tmp; " \
+                      "rm {out_sai}; " \
+                      "samtools sort {out_bam}.tmp 2> /dev/null 1> {out_bam}; " \
+                      "samtools index {out_bam} 2> /dev/null; " \
+                      "samtools view -h {out_bam}.tmp 2> /dev/null 1> {out_bam}.tmp.tmp; " \
+                      "samtools sort {out_bam}.tmp.tmp 2> /dev/null 1> {out_bam}; " \
+                      "samtools index {out_bam}; " \
+                      "rm -f {out_bam}.tmp {out_bam}.tmp.tmp".format(
+                genome_path=genome_path, fastq=fastq, out_bam=out_bam, out_sai=out_sai, threads=threads,
+                additional_flags=additional_flags)
 
     else:
-        command = "bwa aln -t {threads} {additional_flags} {genome_path} {fastq} > {out_sai}; " \
-                  "bwa samse {genome_path} {out_sai} {fastq} > {out_bam}.tmp; " \
-                  "rm {out_sai}; " \
-                  "samtools view -h -q 1 {out_bam}.tmp > {out_bam}.tmp.tmp; " \
-                  "samtools sort {out_bam}.tmp.tmp > {out_bam}; " \
-                  "samtools index {out_bam}; " \
-                  "rm -f {out_bam}.tmp {out_bam}.tmp.tmp".format(
-            genome_path=genome_path, fastq=fastq, out_bam=out_bam, out_sai=out_sai, threads=threads,
-            additional_flags=additional_flags)
+        if qfilter:
+            command = "bwa aln -t {threads} {additional_flags} {genome_path} {fastq} > {out_sai}; " \
+                      "bwa samse {genome_path} {out_sai} {fastq} > {out_bam}.tmp; " \
+                      "rm {out_sai}; " \
+                      "samtools view -h -q 1 {out_bam}.tmp > {out_bam}.tmp.tmp; " \
+                      "samtools sort {out_bam}.tmp.tmp > {out_bam}; " \
+                      "samtools index {out_bam}; " \
+                      "rm -f {out_bam}.tmp {out_bam}.tmp.tmp".format(
+                genome_path=genome_path, fastq=fastq, out_bam=out_bam, out_sai=out_sai, threads=threads,
+                additional_flags=additional_flags)
+        else:
+            command = "bwa aln -t {threads} {additional_flags} {genome_path} {fastq} > {out_sai}; " \
+                      "bwa samse {genome_path} {out_sai} {fastq} > {out_bam}.tmp; " \
+                      "rm {out_sai}; " \
+                      "samtools view -h {out_bam}.tmp > {out_bam}.tmp.tmp; " \
+                      "samtools sort {out_bam}.tmp.tmp > {out_bam}; " \
+                      "samtools index {out_bam}; " \
+                      "rm -f {out_bam}.tmp {out_bam}.tmp.tmp".format(
+                genome_path=genome_path, fastq=fastq, out_bam=out_bam, out_sai=out_sai, threads=threads,
+                additional_flags=additional_flags)
 
     if not silence:
         click.echo("Executing command: %s" % command)

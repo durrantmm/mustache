@@ -39,14 +39,13 @@ def write_site_reads(reads, bam_file, outdir, output_prefix, suffix=None, sort_a
         return False
 
 
-def write_final_dataframe(df, outdir, output_prefix):
-    outfile_name = join(outdir, output_prefix) + '.insertions_seqs.tsv'
+def write_final_dataframe(df, outdir, output_prefix, suffix='.insertion_seqs.tsv'):
+    outfile_name = join(outdir, output_prefix) + suffix
     df.to_csv(outfile_name, index=False, sep='\t')
 
+def write_final_dataframe_to_fasta(df, outdir, output_prefix, suffix='.insertion_seqs.fasta'):
 
-def write_final_dataframe_to_fasta(df, outdir, output_prefix):
-
-    outfile_name = join(outdir, output_prefix) + '.insertions_seqs.fasta'
+    outfile_name = join(outdir, output_prefix) + suffix
 
     out_sequences = []
     for index, row in df.iterrows():
@@ -70,6 +69,39 @@ def write_final_dataframe_to_fasta(df, outdir, output_prefix):
             else:
                 name = '_'.join(map(str, [contig, int(right_site), 'RIGHT_FLANK', 'partner', int(partner_site),
                                           'readcount', int(right_read_counts), 'length', int(assembly_length)]))
+
+        record = SeqRecord(Seq(assembly, IUPAC.IUPACAmbiguousDNA),
+                           id=name, description=name)
+
+        out_sequences.append(record)
+
+    with open(outfile_name, 'w') as output_handle:
+        SeqIO.write(out_sequences, output_handle, 'fasta')
+
+
+def write_final_merged_dataframe_to_fasta(df, outdir, output_prefix, suffix='.merged_insertion_seqs.fasta'):
+
+    outfile_name = join(outdir, output_prefix) + suffix
+
+    out_sequences = []
+    for index, row in df.iterrows():
+
+        contig = row['contig']
+        left_site = row['left_site']
+        right_site = row['right_site']
+        assembly_length = row['assembly_length']
+        assembly = row['assembly']
+        partner_site = row['partner_site']
+
+        if row['orientation'] == 'M':
+            name = '_'.join(map(str, [contig, int(left_site), int(right_site), 'MERGED', 'length', int(assembly_length)]))
+        else:
+            if row['orientation'] == 'L':
+                name = '_'.join(map(str, [contig, int(left_site), 'LEFT_FLANK', 'partner', int(partner_site),
+                                          'length', int(assembly_length)]))
+            else:
+                name = '_'.join(map(str, [contig, int(right_site), 'RIGHT_FLANK', 'partner', int(partner_site),
+                                          'length', int(assembly_length)]))
 
         record = SeqRecord(Seq(assembly, IUPAC.IUPACAmbiguousDNA),
                            id=name, description=name)
