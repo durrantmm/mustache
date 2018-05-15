@@ -18,7 +18,8 @@ setup(
         'scipy',
         'pandas',
         'statsmodels',
-        'numpy'
+        'numpy',
+        'tqdm'
     ],
     zip_safe=False,
     entry_points = {

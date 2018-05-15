@@ -2,6 +2,8 @@ import sys
 import numpy as np
 from scipy.stats import norm
 import pandas as pd
+from Bio import SeqIO
+
 
 def calculate_flank_length(bam_file, max_mapping_distance, flank_length_percentile, max_reads = 100000):
     fragment_lengths = []
@@ -223,3 +225,20 @@ def get_nearby_sites(df, row, min_distance, max_distance, contig_column='contig'
                 position_column=position_column, site_contig=site_contig))
 
     return nearby_mates
+
+class fastaContigGetter:
+
+    current_record = None
+    fasta = None
+
+
+    def __init__(self, genome):
+        self.fasta = SeqIO.parse(genome, 'fasta')
+        self.current_record = next(self.fasta)
+
+
+    def get_contig(self, contig):
+        while self.current_record.id != contig:
+            self.current_record = next(self.fasta)
+
+        return str(self.current_record.seq)

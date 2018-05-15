@@ -31,25 +31,58 @@ def genome_is_indexed(genome_path):
 
     return indexed
 
-def align_fasta_to_genome(fasta, genome_path, out_bam, threads=1, silence=False):
+
+def align_fasta_to_genome(fasta, genome_path, out_bam, threads=1, silence=False, additional_flags=''):
 
     if silence:
         command = "rm -f {out_bam}.sam {out_bam}.sam.tmp; " \
-                  "bowtie2 --very-fast-local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam 2> /dev/null; " \
+                  "bowtie2 {additional_flags} --local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam 2> /dev/null; " \
                   "samtools view -h -q 1 {out_bam}.sam 2> /dev/null 1> {out_bam}.sam.tmp; " \
                   "samtools sort {out_bam}.sam.tmp 2> /dev/null 1> {out_bam}; " \
                   "samtools index {out_bam} 2> /dev/null;" \
                   "rm -f {out_bam}.sam {out_bam}.sam.tmp".format(
-            genome_path=genome_path, fasta=fasta, out_bam=out_bam, threads=threads)
+            genome_path=genome_path, fasta=fasta, out_bam=out_bam, threads=threads, additional_flags=additional_flags)
 
     else:
         command = "rm -f {out_bam}.sam {out_bam}.sam.tmp; " \
-                  "bowtie2 --local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam; " \
+                  "bowtie2 {additional_flags} --local -x {genome_path} -p {threads} -f -U {fasta} -S {out_bam}.sam; " \
                   "samtools view -h -q 1 {out_bam}.sam > {out_bam}.sam.tmp; " \
                   "samtools sort {out_bam}.sam.tmp > {out_bam}; " \
                   "samtools index {out_bam};" \
                   "rm -f {out_bam}.sam {out_bam}.sam.tmp".format(
-            genome_path=genome_path, fasta=fasta, out_bam=out_bam, threads=threads)
+            genome_path=genome_path, fasta=fasta, out_bam=out_bam, threads=threads, additional_flags=additional_flags)
+
+
+
+    if not silence:
+        click.echo("Executing command: %s" % command)
+
+    shell(command, read=silence)
+
+    if isfile(out_bam):
+        return True
+    else:
+        return False
+
+def align_paired_fasta_to_genome(fasta1, fasta2, genome_path, out_bam, threads=1, silence=False, additional_flags=''):
+
+    if silence:
+        command = "rm -f {out_bam}.sam {out_bam}.sam.tmp; " \
+                  "bowtie2 {additional_flags} --local -x {genome_path} -p {threads} -f -1 {fasta1} -2 {fasta2} -S {out_bam}.sam 2> /dev/null; " \
+                  "samtools view -h -q 1 {out_bam}.sam 2> /dev/null 1> {out_bam}.sam.tmp; " \
+                  "samtools sort {out_bam}.sam.tmp 2> /dev/null 1> {out_bam}; " \
+                  "samtools index {out_bam} 2> /dev/null;" \
+                  "rm -f {out_bam}.sam {out_bam}.sam.tmp".format(
+            genome_path=genome_path, fasta1=fasta1, fasta2=fasta2, out_bam=out_bam, threads=threads, additional_flags=additional_flags)
+
+    else:
+        command = "rm -f {out_bam}.sam {out_bam}.sam.tmp; " \
+                  "bowtie2 {additional_flags} --local -x {genome_path} -p {threads} -f -1 {fasta1} -2 {fasta2} -S {out_bam}.sam; " \
+                  "samtools view -h -q 1 {out_bam}.sam > {out_bam}.sam.tmp; " \
+                  "samtools sort {out_bam}.sam.tmp > {out_bam}; " \
+                  "samtools index {out_bam};" \
+                  "rm -f {out_bam}.sam {out_bam}.sam.tmp".format(
+            genome_path=genome_path, fasta1=fasta1, fasta2=fasta2, out_bam=out_bam, threads=threads, additional_flags=additional_flags)
 
 
 

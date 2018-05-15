@@ -14,7 +14,7 @@ def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, mi
     contigs = misc.get_bam_contig_dict(bam_file)
 
     if contig:
-        contigs= {contig: contigs[contig]}
+        contigs = {contig: contigs[contig]}
 
     all_softclipped_sites = None
     for contig in contigs:

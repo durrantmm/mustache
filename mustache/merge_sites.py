@@ -85,7 +85,6 @@ def merge_full_sites(full_sorted, filt_min_merged_length, pairwise_ident_cutoff)
             ('assembly', [])
         ])
 
-        merged_full_sites = None
         for index, row in unique_sites.iterrows():
             bar.update(1)
             contig, left_site, right_site = row['contig'], row['left_site'], row['right_site']

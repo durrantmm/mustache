@@ -1,7 +1,7 @@
 import sys
 import click
 import pysam
-from mustache import bwa_tools, identify_candidate_sites, inseq_site_processor, misc, output, merge_sites
+from mustache import bwa_tools, identify_candidate_sites, inseq_site_processor, misc, output, merge_sites, call_sites, recover_sequences
 from os.path import join, basename, dirname, isdir
 import os, sys
 import pandas as pd
@@ -20,8 +20,13 @@ def find():
     pass
 
 @click.group()
+def call():
+    pass
+
+@click.group()
 def callsites():
     pass
+
 
 @click.command(name='paired')
 @click.argument('fastq1', type=click.Path(exists=True))
@@ -272,6 +277,77 @@ def find_paired(bam_file, genome_fasta, output_prefix, outdir, contig, start, st
     output.write_final_dataframe_to_fasta(final_table, outdir, output_prefix)
 
 
+@click.command(name='paired')
+@click.argument('bam_file', type=click.Path(exists=True))
+@click.argument('genome_fasta', type=click.Path(exists=True))
+@click.argument('sites', type=click.Path(exists=True))
+@click.argument('output_prefix')
+@click.option('--outdir', help="Indicate the directory where you want to write the output files. Default is the output given output prefix")
+@click.option('--max_mapping_distance', default=3000, help="The maximum distance between two pairs to be considered concordantly mapped.")
+@click.option('--flank_length', type=int, help="Specify flank length if desired. Otherwise, flank_length_percentile will be used to calculate flank length from the bam file.")
+@click.option('--flank_length_percentile', default=0.999, help="Assuming normally distributed fragment size, choose the percentile used as length cutoff.")
+@click.option('--min_alignment_overlap', default=4, help="We must see at least <min_alignment_overlap_count> overlapping an insertion site >= <min_alignment_overlap>")
+@click.option('--min_alignment_overlap_count', default=1, help="We must see at least <min_alignment_overlap_count> overlapping an insertion site >= <min_alignment_overlap>")
+@click.option('--threads', default=1, help="Specify the number of threads to use.")
+def call_paired(bam_file, genome_fasta, sites, output_prefix, outdir, max_mapping_distance,
+                flank_length, flank_length_percentile, min_alignment_overlap,
+                min_alignment_overlap_count, threads):
+
+    if output_prefix.count('/') > 0:
+        click.echo("Output prefix cannot be path to a different directory. Try using --outdir.")
+        sys.exit()
+
+    if not outdir:
+        outdir = output_prefix
+    else:
+        outdir = outdir
+
+    click.echo("Making output directory if it doesn't exist...")
+    os.makedirs(outdir, exist_ok=True)
+    if not isdir(outdir):
+        click.echo("Fatal error: Could not create specified directory.")
+        sys.exit()
+    click.echo("Successfully created the specified output directory...\n")
+
+    click.echo("Opening specified BAM file...")
+    bam_file = pysam.AlignmentFile(bam_file, 'rb')
+    click.echo("BAM file successfully opened...\n")
+
+    click.echo("Reading in the specified insertion sites...")
+    header = ['contig','left_site', 'right_site', 'orientation', 'partner_site', 'assembly_length', 'assembly']
+    candidate_sites = pd.read_csv(sites, sep='\t')[header]
+
+    if len(candidate_sites) == 0:
+        click.echo("No candidate sites identified. Try different parameters.")
+        sys.exit()
+    click.echo("A total of %d candidate sites have been read from the file...\n" % len(candidate_sites))
+    click.echo(candidate_sites)
+    click.echo()
+
+    if not flank_length:
+        click.echo('Calculating the maximum inseq flank length based on observed fragment length...')
+        flank_length = misc.calculate_flank_length(bam_file, max_mapping_distance, flank_length_percentile)
+        click.echo('Final flank length calculated as %d.' % flank_length)
+        click.echo('Assuming fragment length to be normally distributed, this should include {perc}% of all read pairs...\n'.format(perc = 100*flank_length_percentile))
+    else:
+        click.echo('Using specified flank length of %d...\n' % flank_length)
+
+    click.echo('Calculating the average read length from the BAM file...')
+    avg_read_length = misc.calculate_average_read_length(bam_file)
+    click.echo('Final average read length calculated as %d.\n' % avg_read_length )
+
+    click.echo("Performing alignment-anchored assemblies of flanking sequencies...")
+    call_results = call_sites.call_sites(candidate_sites, bam_file, genome_fasta, max_mapping_distance, flank_length,
+                                         min_alignment_overlap, min_alignment_overlap_count, outdir)
+
+    sys.exit()
+    click.echo("FINAL INSERTION SEQUENCE TABLE:")
+    click.echo(final_table)
+
+    output.write_final_dataframe(final_table, outdir, output_prefix)
+    output.write_final_dataframe_to_fasta(final_table, outdir, output_prefix)
+
+
 @click.command()
 @click.argument('insertion_seqs_tsv', nargs=-1, type=click.Path(exists=True))
 @click.argument('output_prefix')
@@ -309,15 +385,49 @@ def merge(insertion_seqs_tsv, output_prefix, filt_min_merged_length, filt_min_fl
     output.dataframe_to_stdout(sites)
 
 
+@click.command()
+@click.argument('insertion_seqs_tsv', type=click.Path(exists=True))
+@click.argument('ref_genome', type=click.Path(exists=True))
+@click.argument('comp_genome', type=click.Path(exists=True))
+@click.argument('output_prefix')
+@click.option('--outdir', help="Indicate the directory where you want to write the output files. Default is the output given output prefix")
+def recover(insertion_seqs_tsv, ref_genome, comp_genome, output_prefix, outdir):
+
+    if output_prefix.count('/') > 0:
+        click.echo("Output prefix cannot be path to a different directory. Try using --outdir.")
+        sys.exit()
+
+    if not outdir:
+        outdir = output_prefix
+    else:
+        outdir = outdir
+
+    click.echo("Making output directory if it doesn't exist...")
+    os.makedirs(outdir, exist_ok=True)
+    if not isdir(outdir):
+        click.echo("Fatal error: Could not create specified directory.")
+        sys.exit()
+
+    click.echo("Reading in the specified insertion sequences...")
+    header = ['contig', 'left_site', 'right_site', 'orientation', 'partner_site', 'assembly']
+    insertion_seqs = pd.read_csv(insertion_seqs_tsv, sep='\t')[header]
+
+    recover_sequences.run(insertion_seqs, ref_genome, comp_genome, output_prefix, outdir)
+
+
 # Now set up the click arguments
 align.add_command(align_paired)
 align.add_command(align_single)
 
 find.add_command(find_paired)
 
+call.add_command(call_paired)
+
 cli.add_command(align)
 cli.add_command(find)
 cli.add_command(merge)
+cli.add_command(recover)
+cli.add_command(call)
 
 
 if __name__ == '__main__':

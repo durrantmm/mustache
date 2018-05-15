@@ -5,6 +5,7 @@ channels:
 dependencies:
   - amos=3.1.0=py35_3
   - bwa=0.7.15=1
+  - bowtie2=2.3.0=py35_1
   - jellyfish=2.2.6=0
   - mummer=3.23=4
   - perl-dbi=1.636=0

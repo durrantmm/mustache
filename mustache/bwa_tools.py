@@ -47,7 +47,7 @@ def align_to_genome(fastq1, fastq2, genome_path, out_sam, threads=1):
 
 
 def align_to_genome_single(fastq, genome_path, out_sam, additional_flags='', threads=1):
-    command = "bwa mem -t {threads} {additional_flags} {genome_path} {fastq} > {out_sam}".format(
+    command = "bwa mem -t {threads} {additional_flags} {genome_path} {fastq} 2> /dev/null 1> {out_sam}".format(
         genome_path=genome_path, fastq=fastq,out_sam=out_sam, threads=threads, additional_flags=additional_flags)
     click.echo("Executing command: %s" % command)
     shell(command)

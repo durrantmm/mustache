@@ -95,30 +95,6 @@ def get_flank_assembly(bam_file, contig, site, orientation, softclipped_reads, u
     return flank_assembly
 
 
-def get_flank_read_count(genome, contig, site, orientation, flank_assembly, unmapped_reads, softclipped_reads,
-                         flank_length, outdir, site_name):
-
-    inserted_genome = get_inserted_genome(genome, contig, site, orientation, flank_assembly, flank_length)
-
-    tmp_genome = join(outdir, site_name + '.genome.read_count.fasta')
-    tmp_fasta = join(outdir, site_name + '.read_count.fasta')
-    tmp_alignment = join(outdir, site_name + ".realign.read_count.bam")
-
-    output.write_reads_to_fasta([(site_name + "_ancestral_genome", inserted_genome)], tmp_genome)
-    output.write_reads_to_fasta(softclipped_reads + unmapped_reads, tmp_fasta)
-
-    index_genome(tmp_genome, silence=True)
-    bwa_aln_to_genome_single(tmp_fasta, tmp_genome, tmp_alignment, silence=True)
-
-    read_count = get_inseq_overlapping_read_count(pysam.AlignmentFile(tmp_alignment, 'rb'),
-                                                  len(flank_assembly), orientation)
-
-    click.echo('\tDeleting tmp files...')
-    shell("rm {tmp_genome}* {tmp_fasta}* {tmp_alignment}*;")
-
-    return read_count
-
-
 def determine_site_pairs(df, bam_file, genome_fasta, min_pair_distance, max_pair_distance, outdir):
 
     click.echo("\nDetermining insertion site pairs and attempting to merge flanks...")

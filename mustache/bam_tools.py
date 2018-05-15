@@ -1,8 +1,80 @@
 import sys
-from mustache import alignment_tools
-from mustache import misc
+from mustache import alignment_tools, output, misc
+from mustache.bwa_tools import *
 from collections import defaultdict
 from Bio import SeqIO
+from os.path import join
+from snakemake import shell
+
+
+def get_flank_read_count(genome, contig, site, orientation, flank_assembly, unmapped_reads, softclipped_reads,
+                         flank_length, outdir, site_name, min_alignment_overlap=1, min_alignment_overlap_count=0):
+
+    inserted_genome = get_inserted_genome(genome, contig, site, orientation, flank_assembly, flank_length)
+
+    tmp_genome = join(outdir, site_name + '.genome.read_count.fasta')
+    tmp_fasta = join(outdir, site_name + '.read_count.fasta')
+    tmp_alignment = join(outdir, site_name + ".realign.read_count.bam")
+
+    output.write_reads_to_fasta([(site_name + "_ancestral_genome", inserted_genome)], tmp_genome)
+    output.write_reads_to_fasta(softclipped_reads + unmapped_reads, tmp_fasta)
+
+    index_genome(tmp_genome, silence=True)
+    bwa_aln_to_genome_single(tmp_fasta, tmp_genome, tmp_alignment, silence=True)
+
+    read_count = get_inseq_overlapping_read_count(pysam.AlignmentFile(tmp_alignment, 'rb'),
+                                                  len(flank_assembly), orientation, min_alignment_overlap,
+                                                  min_alignment_overlap_count)
+
+    shell("rm {tmp_genome}* {tmp_fasta}* {tmp_alignment}*;")
+
+    return read_count
+
+
+def get_inseq_overlapping_read_count(bam_file, assembly_length, orientation, min_alignment_overlap, min_alignment_overlap_count):
+
+    unique_reads = set()
+    alignment_overlap_count = 0
+    total_reads = 0
+
+    if orientation == 'L':
+        for read in bam_file:
+            if read.is_unmapped:
+                continue
+
+            if read.reference_start <= assembly_length:
+                unique_reads.add(read.query_name)
+
+            if read.reference_start <= (assembly_length - min_alignment_overlap):
+                alignment_overlap_count += 1
+
+            total_reads += 1
+
+    elif orientation == 'R':
+
+        contig_length = bam_file.header['SQ'][0]['LN']
+
+        for read in bam_file:
+            if read.is_unmapped:
+                continue
+
+            if read.reference_end >= (contig_length - assembly_length):
+                unique_reads.add(read.query_name)
+
+            if read.reference_end >= (contig_length - assembly_length + min_alignment_overlap):
+                alignment_overlap_count += 1
+
+            total_reads += 1
+
+
+    read_count = len(unique_reads)
+
+    if alignment_overlap_count < min_alignment_overlap_count:
+        read_count = 0
+
+    return(read_count)
+
+
 
 def get_left_softclipped_reads_at_site(bam_file, contig, left_site, revcomp_left=False):
     left_softclipped_reads = []
@@ -333,6 +405,18 @@ def is_left_softclipped(read):
     else:
         return False
 
+def is_left_softclipped_strict(read):
+    if read.cigartuples[0][0] == 4:
+        return True
+    else:
+        return False
+
+def is_right_softclipped_strict(read):
+    if read.cigartuples[-1][0] == 4:
+        return True
+    else:
+        return False
+
 def get_right_softclip_length(read):
     if is_right_softclipped(read):
         if read.cigartuples[-1][0] == 4:
@@ -342,6 +426,9 @@ def get_right_softclip_length(read):
     else:
         return 0
 
+def get_right_softclip_length_strict(read):
+    return read.cigartuples[-1][1]
+
 def get_left_softclip_length(read):
     if is_left_softclipped(read):
         if read.cigartuples[0][0] == 4:
@@ -350,6 +437,9 @@ def get_left_softclip_length(read):
             return 1
     else:
         return 0
+
+def get_left_softclip_length_strict(read):
+    return read.cigartuples[0][1]
 
 def right_softclipped_site(read):
     if read.cigartuples[-1][0] == 4:
@@ -514,8 +604,6 @@ def retrieve_merged_assembly(assembly, left_bam, right_bam):
         else:
             return None
 
-
-
 def get_most_common_orientation_at_site(bam_file, contig, site):
     reverse_count = 0
     forward_count = 0
@@ -548,30 +636,3 @@ def get_inserted_genome(genome, contig, site, orientation, flank_assembly, flank
         inserted_genome = genome[(site-flank_length):site] + flank_assembly
 
     return inserted_genome
-
-
-def get_inseq_overlapping_read_count(bam_file, flank_length, orientation):
-
-    unique_reads = set()
-
-    if orientation == 'L':
-        for read in bam_file:
-            if read.is_unmapped:
-                continue
-            if read.reference_start < flank_length:
-                unique_reads.add(read.query_name)
-
-    elif orientation == 'R':
-
-        contig_length = bam_file.header['SQ'][0]['LN']
-
-        for read in bam_file:
-            if read.is_unmapped:
-                continue
-
-            if read.reference_end >= contig_length - flank_length:
-                unique_reads.add(read.query_name)
-
-    read_count = len(unique_reads)
-    return(read_count)
-
