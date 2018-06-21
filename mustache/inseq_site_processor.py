@@ -43,17 +43,17 @@ def process_candidate_site(bam_file, genome, contig, site, orientation, flank_le
 
     # Get local ancestral genome and realign reads
     click.echo('\tRealigning reads to reconstructed ancestral genome and counting alignments...')
-    inseq_read_count = get_flank_read_count(genome, contig, site, orientation, flank_assembly, unmapped_reads,
+    junction_read_count, total_read_count = get_flank_read_count(genome, contig, site, orientation, flank_assembly, unmapped_reads,
                                             softclipped_reads, flank_length, outdir, site_name)
 
-    click.echo('\tTotal reads aligning to assembled flank: %d' % inseq_read_count)
+    click.echo('\tTotal reads aligning to assembled flank: %d' % total_read_count)
 
     out_dict = OrderedDict([
         ('contig', [contig]),
         ('site', [site]),
         ('orientation', [orientation]),
         ('flank_length', [flank_length]),
-        ('inseq_read_count', [inseq_read_count]),
+        ('inseq_read_count', [total_read_count]),
         ('assembly_length', [len(flank_assembly)]),
         ('flank_assembly', [flank_assembly])
     ])

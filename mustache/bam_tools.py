@@ -20,21 +20,25 @@ def get_flank_read_count(genome, contig, site, orientation, flank_assembly, unma
     output.write_reads_to_fasta(softclipped_reads + unmapped_reads, tmp_fasta)
 
     index_genome(tmp_genome, silence=True)
-    bwa_aln_to_genome_single(tmp_fasta, tmp_genome, tmp_alignment, silence=True)
+    align_to_genome_single(tmp_fasta, tmp_genome, tmp_alignment)
 
-    read_count = get_inseq_overlapping_read_count(pysam.AlignmentFile(tmp_alignment, 'rb'),
-                                                  len(flank_assembly), orientation, min_alignment_overlap,
-                                                  min_alignment_overlap_count)
+
+    total_read_count, junction_read_count = get_inseq_overlapping_read_count(pysam.AlignmentFile(tmp_alignment, 'rb'),
+                                                                             len(flank_assembly), orientation,
+                                                                             min_alignment_overlap,
+                                                                             min_alignment_overlap_count)
 
     shell("rm {tmp_genome}* {tmp_fasta}* {tmp_alignment}*;")
 
-    return read_count
+    return junction_read_count, total_read_count
 
 
 def get_inseq_overlapping_read_count(bam_file, assembly_length, orientation, min_alignment_overlap, min_alignment_overlap_count):
 
-    unique_reads = set()
-    alignment_overlap_count = 0
+    unique_all_reads = set()
+    unique_junction_reads = set()
+    total_overlap_count = 0
+
     total_reads = 0
 
     if orientation == 'L':
@@ -43,10 +47,13 @@ def get_inseq_overlapping_read_count(bam_file, assembly_length, orientation, min
                 continue
 
             if read.reference_start <= assembly_length:
-                unique_reads.add(read.query_name)
+                unique_all_reads.add(read.query_name)
 
             if read.reference_start <= (assembly_length - min_alignment_overlap):
-                alignment_overlap_count += 1
+                total_overlap_count += 1
+
+            if read.reference_start <= assembly_length and read.reference_end > assembly_length:
+                unique_junction_reads.add(read.query_name)
 
             total_reads += 1
 
@@ -59,20 +66,26 @@ def get_inseq_overlapping_read_count(bam_file, assembly_length, orientation, min
                 continue
 
             if read.reference_end >= (contig_length - assembly_length):
-                unique_reads.add(read.query_name)
+                unique_all_reads.add(read.query_name)
 
             if read.reference_end >= (contig_length - assembly_length + min_alignment_overlap):
-                alignment_overlap_count += 1
+                total_overlap_count += 1
+
+            if read.reference_end >= (contig_length - assembly_length) and \
+                            read.reference_start < (contig_length - assembly_length + min_alignment_overlap):
+                unique_junction_reads.add(read.query_name)
 
             total_reads += 1
 
 
-    read_count = len(unique_reads)
+    total_read_count = len(unique_all_reads)
+    junction_read_count = len(unique_junction_reads)
 
-    if alignment_overlap_count < min_alignment_overlap_count:
-        read_count = 0
+    if total_overlap_count < min_alignment_overlap_count:
+        total_read_count = 0
+        junction_read_count = 0
 
-    return(read_count)
+    return(total_read_count, junction_read_count)
 
 
 
@@ -427,7 +440,10 @@ def get_right_softclip_length(read):
         return 0
 
 def get_right_softclip_length_strict(read):
-    return read.cigartuples[-1][1]
+    if is_right_softclipped_strict(read):
+        return read.cigartuples[-1][1]
+    else:
+        return 0
 
 def get_left_softclip_length(read):
     if is_left_softclipped(read):
@@ -439,7 +455,10 @@ def get_left_softclip_length(read):
         return 0
 
 def get_left_softclip_length_strict(read):
-    return read.cigartuples[0][1]
+    if is_left_softclipped_strict(read):
+        return read.cigartuples[0][1]
+    else:
+        return 0
 
 def right_softclipped_site(read):
     if read.cigartuples[-1][0] == 4:
@@ -636,3 +655,13 @@ def get_inserted_genome(genome, contig, site, orientation, flank_assembly, flank
         inserted_genome = genome[(site-flank_length):site] + flank_assembly
 
     return inserted_genome
+
+
+def get_average_region_coverage(bam, contig, start, end):
+
+    running_sum = 0
+
+    for pileupcolumn in bam.pileup(contig, start, end, truncate=True):
+        running_sum += pileupcolumn.n
+
+    return running_sum / (end-start)

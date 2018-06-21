@@ -82,6 +82,31 @@ def write_final_dataframe_to_fasta(df, outdir, output_prefix, suffix='.insertion
     with open(outfile_name, 'w') as output_handle:
         SeqIO.write(out_sequences, output_handle, 'fasta')
 
+def write_table_to_fasta_stdout(df):
+
+    out_sequences = []
+    for index, row in df.iterrows():
+
+        assembly = row['assembly']
+
+        if 'id' in list(df.columns.values):
+            id = row.id
+        else:
+            contig = row['contig']
+            left_site = row['left_site']
+            right_site = row['right_site']
+
+
+            id = '|'.join(map(str, [contig, left_site, right_site, index+1]))
+
+        record = SeqRecord(Seq(assembly, IUPAC.IUPACAmbiguousDNA),
+                           id=id, description=id)
+
+        out_sequences.append(record)
+
+    with sys.stdout as output_handle:
+        SeqIO.write(out_sequences, output_handle, 'fasta')
+
 
 def write_final_merged_dataframe_to_fasta(df, outdir, output_prefix, suffix='.merged_insertion_seqs.fasta'):
 
@@ -159,11 +184,12 @@ def write_flanks_to_paired_end_fasta_by_columns(df, names_column, seq_column, ou
         left_seq = row.left_seq
         right_seq = row.right_seq
 
-        left_record = SeqRecord(Seq(left_seq, IUPAC.IUPACAmbiguousDNA), id=full_name, description=full_name)
-        right_record = SeqRecord(Seq(misc.revcomp(right_seq), IUPAC.IUPACAmbiguousDNA), id=full_name, description=full_name)
+        right_record = SeqRecord(Seq(right_seq, IUPAC.IUPACAmbiguousDNA), id=full_name, description=full_name)
+        left_record = SeqRecord(Seq(misc.revcomp(left_seq), IUPAC.IUPACAmbiguousDNA), id=full_name, description=full_name)
 
-        out_sequences1.append(left_record)
-        out_sequences2.append(right_record)
+
+        out_sequences1.append(right_record)
+        out_sequences2.append(left_record)
 
 
     with open(outfile_name1, 'w') as output_handle:

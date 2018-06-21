@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 def call_sites(candidate_sites, bam_file, genome_fasta, max_mapping_distance, flank_length,
                min_alignment_overlap, min_alignment_overlap_count, outdir):
+
     click.echo("Calling insertion sequences at specified sites...")
 
     #candidate_sites.sort_values(['contig'], inplace=True)
@@ -16,9 +17,7 @@ def call_sites(candidate_sites, bam_file, genome_fasta, max_mapping_distance, fl
     site_inseq_counts = get_all_inseq_read_counts(candidate_sites, bam_file, genome_fasta, max_mapping_distance,
                                                   flank_length, min_alignment_overlap, min_alignment_overlap_count,
                                                   outdir)
-    site_ancestral_counts = get_all_ancestral_read_counts(candidate_sites, bam_file)
-    print(site_inseq_counts)
-    sys.exit()
+    return site_inseq_counts
 
 
 def get_all_inseq_read_counts(candidate_sites, bam_file, genome_fasta, max_mapping_distance, flank_length,
@@ -32,7 +31,7 @@ def get_all_inseq_read_counts(candidate_sites, bam_file, genome_fasta, max_mappi
 
     site_inseq_counts = None
 
-    with tqdm(total=unique_sites.shape[0], desc='GETTING EVIDENCE FOR INSERTION SEQUENCES') as bar:
+    with tqdm(total=unique_sites.shape[0], desc='RETRIEVING EVIDENCE FOR INSERTION SEQUENCES') as bar:
 
         for index, row in unique_sites.iterrows():
             bar.update(1)
@@ -42,6 +41,7 @@ def get_all_inseq_read_counts(candidate_sites, bam_file, genome_fasta, max_mappi
 
             # Retrieve the relevant contig from the fasta
             if genome_name != contig:
+
                 next_rec = next(read_genome_fasta)
                 while next_rec.name != contig:
                     next_rec = next(read_genome_fasta)
@@ -49,13 +49,16 @@ def get_all_inseq_read_counts(candidate_sites, bam_file, genome_fasta, max_mappi
                 genome_seq = str(next_rec.seq)
 
             if orientation == 'L':
+
                 site = row['left_site']
                 df = get_inseq_read_count(bam_file, genome_seq, contig, site, orientation, assembly, max_mapping_distance,
                                flank_length, min_alignment_overlap, min_alignment_overlap_count, outdir)
+
             elif orientation == 'R':
                 site = row['right_site']
                 df = get_inseq_read_count(bam_file, genome_seq, contig, site, orientation, assembly, max_mapping_distance,
                                flank_length, min_alignment_overlap, min_alignment_overlap_count, outdir)
+
             else:
                 left_site = row['left_site']
                 right_site = row['right_site']
@@ -76,21 +79,25 @@ def get_all_inseq_read_counts(candidate_sites, bam_file, genome_fasta, max_mappi
     site_inseq_counts.loc[:, 'left_site'] = site_inseq_counts.apply(lambda r: r.site if r.orientation=='L' else -1, axis=1)
     site_inseq_counts.loc[:, 'right_site'] = site_inseq_counts.apply(lambda r: r.site if r.orientation == 'R' else -1, axis=1)
 
-    site_inseq_counts = pd.DataFrame(site_inseq_counts[['contig', 'left_site', 'right_site', 'orientation', 'assembly', 'inseq_read_count']])
-    left_inseq_counts = site_inseq_counts.query('orientation == "L" & right_site == -1')[['contig', 'left_site', 'assembly', 'inseq_read_count']]
-    left_inseq_counts.rename(columns={'inseq_read_count': 'left_inseq_read_count'}, inplace=True)
-    right_inseq_counts = site_inseq_counts.query('orientation == "R" & left_site == -1')[['contig', 'right_site', 'assembly', 'inseq_read_count']]
-    right_inseq_counts.rename(columns={'inseq_read_count': 'right_inseq_read_count'}, inplace=True)
+    site_inseq_counts = pd.DataFrame(site_inseq_counts[['contig', 'left_site', 'right_site', 'orientation', 'assembly', 'junction_read_count', 'total_read_count', 'flank_average_coverage']])
+    left_inseq_counts = site_inseq_counts.query('orientation == "L" & right_site == -1')[['contig', 'left_site', 'assembly', 'junction_read_count', 'total_read_count', 'flank_average_coverage']]
+    left_inseq_counts.rename(columns={'junction_read_count': 'left_junction_read_count', 'total_read_count': 'left_total_read_count', 'flank_average_coverage': 'left_flank_average_coverage'}, inplace=True)
+    right_inseq_counts = site_inseq_counts.query('orientation == "R" & left_site == -1')[['contig', 'right_site', 'assembly', 'junction_read_count', 'total_read_count', 'flank_average_coverage']]
+    right_inseq_counts.rename(columns={'junction_read_count': 'right_junction_read_count', 'total_read_count': 'right_total_read_count', 'flank_average_coverage': 'right_flank_average_coverage'}, inplace=True)
 
     orig_sites = pd.merge(orig_sites, left_inseq_counts, how='left')
     orig_sites = pd.merge(orig_sites, right_inseq_counts, how='left')
     orig_sites.fillna(-1, inplace=True)
-    orig_sites.loc[:,'left_inseq_read_count'] = orig_sites.apply(lambda r: int(r.left_inseq_read_count), axis=1)
-    orig_sites.loc[:, 'right_inseq_read_count'] = orig_sites.apply(lambda r: int(r.right_inseq_read_count), axis=1)
+    orig_sites.loc[:,'left_junction_read_count'] = orig_sites.apply(lambda r: int(r.left_junction_read_count), axis=1)
+    orig_sites.loc[:, 'right_junction_read_count'] = orig_sites.apply(lambda r: int(r.right_junction_read_count), axis=1)
+    orig_sites.loc[:, 'left_total_read_count'] = orig_sites.apply(lambda r: int(r.left_total_read_count), axis=1)
+    orig_sites.loc[:, 'right_total_read_count'] = orig_sites.apply(lambda r: int(r.right_total_read_count), axis=1)
 
-    print(orig_sites)
-    sys.exit()
-    return site_inseq_counts
+    orig_sites = pd.DataFrame(orig_sites[['contig', 'left_site', 'right_site', 'orientation', 'left_junction_read_count',
+                                          'right_junction_read_count', 'left_total_read_count', 'right_total_read_count',
+                                          'left_flank_average_coverage', 'right_flank_average_coverage', 'assembly']])
+
+    return orig_sites
 
 
 def get_inseq_read_count(bam_file, genome, contig, site, orientation, assembly, max_mapping_distance,
@@ -106,26 +113,33 @@ def get_inseq_read_count(bam_file, genome, contig, site, orientation, assembly, 
     if orientation == "L":
         softclipped_reads = get_left_softclipped_reads_at_site(bam_file, contig, site, revcomp_left=True)
         unmapped_reads = get_left_unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_distance)
+        flank_average_coverage = get_average_region_coverage(bam_file, contig, site, (site+1)+flank_length)
+
     elif orientation == "R":
         softclipped_reads = get_right_softclipped_reads_at_site(bam_file, contig, site, revcomp_left=True)
         unmapped_reads = get_right_unmapped_reads_in_flanks(bam_file, contig, site, flank_length, max_mapping_distance)
+        flank_average_coverage = get_average_region_coverage(bam_file, contig, (site - flank_length), site)
 
     # Get local ancestral genome and realign reads
-    inseq_read_count = get_flank_read_count(genome, contig, site, orientation, assembly, unmapped_reads,
-                                            softclipped_reads, flank_length, outdir, site_name, min_alignment_overlap,
-                                            min_alignment_overlap_count)
+    junction_read_count, total_read_count = get_flank_read_count(genome, contig, site, orientation, assembly,
+                                                                 unmapped_reads, softclipped_reads, flank_length,
+                                                                 outdir, site_name, min_alignment_overlap,
+                                                                 min_alignment_overlap_count)
 
     out_dict = OrderedDict([
         ('contig', [contig]),
         ('site', [site]),
         ('orientation', [orientation]),
         ('flank_length', [flank_length]),
-        ('inseq_read_count', [inseq_read_count]),
+        ('junction_read_count', [junction_read_count]),
+        ('total_read_count', [total_read_count]),
+        ('flank_average_coverage', [flank_average_coverage]),
         ('assembly_length', [len(assembly)]),
         ('flank_assembly', [assembly])
     ])
 
     return pd.DataFrame(out_dict)
+
 
 def get_all_ancestral_read_counts(candidate_sites, bam_file, max_softclip_distance = 20):
 

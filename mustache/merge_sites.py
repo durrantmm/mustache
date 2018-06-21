@@ -11,10 +11,11 @@ from tqdm import tqdm
 tqdm.monitor_interval = 0
 import itertools
 from scipy.sparse.csgraph import connected_components
-
+from Bio.pairwise2 import format_alignment
+from Bio import pairwise2
 
 def merge(insertseq_files, filt_min_merged_length, filt_min_flank_length, pairwise_ident_cutoff,
-          min_softclip_pair_distance, max_softclip_pair_distance, output_prefix, outdir):
+          min_softclip_pair_distance, max_softclip_pair_distance, output_prefix, lenient, outdir):
 
     complete_table = None
 
@@ -45,7 +46,9 @@ def merge(insertseq_files, filt_min_merged_length, filt_min_flank_length, pairwi
     all_merged_sorted = all_merged_sorted[['contig', 'left_site', 'right_site', 'orientation', 'partner_site', 'assembly_length', 'assembly']]
     all_merged_sorted = pd.concat([all_merged_sorted, merged_left_right_sites]).sort_values(['contig', 'site']).reset_index(drop=True)
 
-    final_merged_full_sites = merge_full_sites(all_merged_sorted, filt_min_merged_length, pairwise_ident_cutoff)
+    final_merged_full_sites = merge_full_sites_strict(all_merged_sorted, filt_min_merged_length, pairwise_ident_cutoff)
+    if lenient:
+        final_merged_full_sites = merge_full_sites_lenient(final_merged_full_sites, filt_min_merged_length)
 
     click.echo("After processing full sites, %d merged sequences remain...\n" % final_merged_full_sites.shape[0])
 
@@ -64,7 +67,8 @@ def merge(insertseq_files, filt_min_merged_length, filt_min_flank_length, pairwi
 
     sys.exit()
 
-def merge_full_sites(full_sorted, filt_min_merged_length, pairwise_ident_cutoff):
+
+def merge_full_sites_strict(full_sorted, filt_min_merged_length, pairwise_ident_cutoff):
 
     click.echo("Filtering out all merged sequences shorter than %d base pairs..." % filt_min_merged_length)
     full_sorted.query("assembly_length >= @filt_min_merged_length", inplace=True)
@@ -72,7 +76,7 @@ def merge_full_sites(full_sorted, filt_min_merged_length, pairwise_ident_cutoff)
     unique_sites = full_sorted[['contig', 'left_site', 'right_site']].drop_duplicates()
     click.echo('Processing %d complete insertion sites...' % unique_sites.shape[0])
 
-    with tqdm(total=unique_sites.shape[0], desc='MERGE FULL SITES') as bar:
+    with tqdm(total=unique_sites.shape[0], desc='MERGE FULL SITES STRICT') as bar:
 
         out_dict = OrderedDict([
             ('contig', []),
@@ -129,11 +133,11 @@ def merge_full_sites(full_sorted, filt_min_merged_length, pairwise_ident_cutoff)
 
                         for cluster in pairwise_clusters:
                             cluster_seqs = out_sequences[cluster]
-                            consensus_sequence = get_consensus_sequence(cluster_seqs)
-                            new_out_sequences.append(consensus_sequence)
+                            longest_seq = max(cluster_seqs, key=len)
+                            new_out_sequences.append(longest_seq)
 
                         out_sequences_prev_length = len(out_sequences)
-                        out_sequences = list(new_out_sequences)
+                        out_sequences = np.array(list(new_out_sequences))
 
                     for seq in out_sequences:
                         out_dict['contig'].append(contig)
@@ -144,6 +148,90 @@ def merge_full_sites(full_sorted, filt_min_merged_length, pairwise_ident_cutoff)
                         out_dict['partner_site'].append(-1)
                         out_dict['assembly_length'].append(len(seq))
                         out_dict['assembly'].append(seq)
+
+    merged_full_sites = pd.DataFrame(out_dict).drop_duplicates()
+    merged_full_sites.reset_index(drop=True, inplace=True)
+    return merged_full_sites
+
+
+def merge_full_sites_lenient(full_sorted, filt_min_merged_length, pairwise_indel_cutoff=0.15):
+
+    click.echo("Filtering out all merged sequences shorter than %d base pairs..." % filt_min_merged_length)
+    full_sorted.query("assembly_length >= @filt_min_merged_length", inplace=True)
+
+    unique_sites = full_sorted[['contig', 'left_site', 'right_site']].drop_duplicates()
+    click.echo('Processing %d complete insertion sites...' % unique_sites.shape[0])
+
+    with tqdm(total=unique_sites.shape[0], desc='MERGE FULL SITES LENIENT') as bar:
+
+        out_dict = OrderedDict([
+            ('contig', []),
+            ('site', []),
+            ('left_site', []),
+            ('right_site', []),
+            ('orientation', []),
+            ('partner_site', []),
+            ('assembly_length', []),
+            ('assembly', [])
+        ])
+
+        for index, row in unique_sites.iterrows():
+            bar.update(1)
+            contig, left_site, right_site = row['contig'], row['left_site'], row['right_site']
+            matched_sites = full_sorted.query('contig == @contig & left_site == @left_site & right_site == @right_site')
+
+            unique_assemblies = np.array(list(set(list(matched_sites['assembly']))))
+
+            if len(unique_assemblies) == 1:
+                out_seq = list(unique_assemblies)[0]
+
+                out_dict['contig'].append(contig)
+                out_dict['site'].append(left_site)
+                out_dict['left_site'].append(left_site)
+                out_dict['right_site'].append(right_site)
+                out_dict['orientation'].append('M')
+                out_dict['partner_site'].append(-1)
+                out_dict['assembly_length'].append(len(out_seq))
+                out_dict['assembly'].append(out_seq)
+
+            else:
+
+                out_sequences = np.array(list(unique_assemblies))
+                out_sequences_prev_length = -1
+
+                while len(out_sequences) != out_sequences_prev_length:
+
+                    has_match = set()
+                    pairwise_matches = set()
+                    for i, j in itertools.combinations(range(len(out_sequences)), r=2):
+                        pairwise_indel = get_perc_indels_global(out_sequences[i], out_sequences[j])
+                        if pairwise_indel < pairwise_indel_cutoff:
+                            has_match.add(i)
+                            has_match.add(j)
+                            pairwise_matches.add((i, j))
+
+                    new_out_sequences = [out_sequences[i] for i in range(len(out_sequences)) if i not in has_match]
+
+                    pairwise_clusters = get_pairwise_clusters(pairwise_matches, has_match)
+
+                    for cluster in pairwise_clusters:
+
+                        cluster_seqs = out_sequences[cluster]
+                        consensus_sequence = get_consensus_sequence(cluster_seqs)
+                        new_out_sequences.append(consensus_sequence)
+
+                    out_sequences_prev_length = len(out_sequences)
+                    out_sequences = np.array(list(new_out_sequences))
+
+                for seq in out_sequences:
+                    out_dict['contig'].append(contig)
+                    out_dict['site'].append(left_site)
+                    out_dict['left_site'].append(left_site)
+                    out_dict['right_site'].append(right_site)
+                    out_dict['orientation'].append('M')
+                    out_dict['partner_site'].append(-1)
+                    out_dict['assembly_length'].append(len(seq))
+                    out_dict['assembly'].append(seq)
 
     merged_full_sites = pd.DataFrame(out_dict).drop_duplicates()
     merged_full_sites.reset_index(drop=True, inplace=True)
@@ -462,6 +550,38 @@ def get_perc_identity(seq1, seq2, is_reversed=False):
                 match += 1
 
     return match/total
+
+
+def get_perc_indels_global(seq1, seq2, is_reversed=False):
+    alignments = pairwise2.align.globalxx(seq1, seq2)
+    aln1, aln2 = alignments[0][0], alignments[0][1]
+
+
+    inside_indel = False
+    total_chars = 0
+    total_indels = 0
+
+    for i in range(len(aln1)):
+        if aln1[i] == '-' or aln2[i] == '-':
+
+            if not inside_indel:
+                inside_indel = True
+                total_chars += 1
+                total_indels += 1
+
+        elif aln1[i] != '-' and aln2[i] != '-':
+            total_chars += 1
+            if inside_indel:
+                inside_indel = False
+
+    perc_indels = total_indels / total_chars
+
+    #if perc_indels > 0:
+    #    print(total_indels)
+    #    print(total_chars)
+    #    print(perc_indels)
+    #    print(format_alignment(*alignments[0]))
+    return perc_indels
 
 
 def get_pairwise_clusters(pairwise_matches, has_match):

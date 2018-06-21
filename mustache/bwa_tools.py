@@ -35,7 +35,7 @@ def index_genome(genome_path, silence=False):
 
 
 def align_to_genome(fastq1, fastq2, genome_path, out_sam, threads=1):
-    command = "bwa mem -t {threads} {genome_path} {fastq1} {fastq2} > {out_sam}".format(
+    command = "bwa mem -t {threads} {genome_path} {fastq1} {fastq2} > {out_sam}; ".format(
         genome_path=genome_path, fastq1=fastq1, fastq2=fastq2, out_sam=out_sam, threads=threads)
     click.echo("Executing command: %s" % command)
     shell(command)
@@ -106,9 +106,6 @@ def bwa_aln_to_genome_single(fastq, genome_path, out_bam, additional_flags='', t
                       "rm -f {out_bam}.tmp {out_bam}.tmp.tmp".format(
                 genome_path=genome_path, fastq=fastq, out_bam=out_bam, out_sai=out_sai, threads=threads,
                 additional_flags=additional_flags)
-
-    if not silence:
-        click.echo("Executing command: %s" % command)
 
     shell(command, read=silence)
 

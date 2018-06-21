@@ -38,6 +38,7 @@ def callsites():
 def align_paired(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
     click.echo("Performing alignment with bwa...")
 
+
     click.echo("Checking if genome is indexed...")
     if bwa_tools.genome_is_indexed(genome):
         click.echo("Genome is already indexed, skipping...")
@@ -49,13 +50,15 @@ def align_paired(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
             sys.exit()
         click.echo("The genome is properly indexed...\n")
 
+
     click.echo("Performing the alignment with BWA...")
-    tmp_sam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1])+'.sam.tmp')
+    tmp_sam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1])+'.bam.tmp')
     aligned = bwa_tools.align_to_genome(fastq1, fastq2, genome, tmp_sam, threads)
     if not aligned:
         click.echo("Fatal error: Alignment seemed to have failed.")
         sys.exit()
     click.echo("Initial alignment completed successfully...\n")
+
 
     click.echo("Removing secondary alignments...")
     tmp_cleaned_bam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1]) + '.cleaned.bam.tmp')
@@ -65,6 +68,7 @@ def align_paired(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
         sys.exit()
     click.echo("Successfully removed secondary alignments...\n")
 
+
     click.echo("Formatting bam file for use by mustache...")
     tmp_formatted_bam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1]) + '.formatted.bam.tmp')
     reformatted = bwa_tools.format_for_mustache(tmp_cleaned_bam, tmp_formatted_bam, delete_in_sam=not keep_tmp_files)
@@ -73,12 +77,14 @@ def align_paired(fastq1, fastq2, genome, out_bam, threads, keep_tmp_files):
         sys.exit()
     click.echo("SAM file successfully reformatted...\n")
 
+
     click.echo("Sorting the BAM file by chromosomal location...")
     sorted_bam = bwa_tools.samtools_sort_coordinate(tmp_formatted_bam, out_bam, delete_in_bam=not keep_tmp_files)
     if not sorted_bam:
         click.echo("Fatal error: Failed to sort the BAM file.")
         sys.exit()
     click.echo("BAM file successfully sorted...\n")
+
 
     click.echo("Index the sorted BAM file...")
     indexed = bwa_tools.samtools_index(out_bam)
@@ -316,6 +322,8 @@ def call_paired(bam_file, genome_fasta, sites, output_prefix, outdir, max_mappin
     click.echo("Reading in the specified insertion sites...")
     header = ['contig','left_site', 'right_site', 'orientation', 'partner_site', 'assembly_length', 'assembly']
     candidate_sites = pd.read_csv(sites, sep='\t')[header]
+    candidate_sites['left_site'] = candidate_sites['left_site'].apply(int)
+    candidate_sites['right_site'] = candidate_sites['right_site'].apply(int)
 
     if len(candidate_sites) == 0:
         click.echo("No candidate sites identified. Try different parameters.")
@@ -340,12 +348,11 @@ def call_paired(bam_file, genome_fasta, sites, output_prefix, outdir, max_mappin
     call_results = call_sites.call_sites(candidate_sites, bam_file, genome_fasta, max_mapping_distance, flank_length,
                                          min_alignment_overlap, min_alignment_overlap_count, outdir)
 
-    sys.exit()
-    click.echo("FINAL INSERTION SEQUENCE TABLE:")
-    click.echo(final_table)
 
-    output.write_final_dataframe(final_table, outdir, output_prefix)
-    output.write_final_dataframe_to_fasta(final_table, outdir, output_prefix)
+    click.echo("FINAL INSERTION SEQUENCE TABLE:")
+    click.echo(call_results)
+
+    output.write_final_dataframe(call_results, outdir, output_prefix, suffix='.called_insertion_seqs.tsv')
 
 
 @click.command()
@@ -357,8 +364,9 @@ def call_paired(bam_file, genome_fasta, sites, output_prefix, outdir, max_mappin
 @click.option('--min_softclip_pair_distance', default=0, help="Choose the minimum distance between softclip sites in a pair.")
 @click.option('--max_softclip_pair_distance', default=20, help="Choose the maximum distance between softclip sites in a pair.")
 @click.option('--outdir', help="Indicate the directory where you want to write the output files. Default is the output given output prefix")
+@click.option('--lenient/--no-lenient', default=True)
 def merge(insertion_seqs_tsv, output_prefix, filt_min_merged_length, filt_min_flank_length, min_pairwise_identity,
-          min_softclip_pair_distance, max_softclip_pair_distance, outdir):
+          min_softclip_pair_distance, max_softclip_pair_distance, lenient, outdir):
 
     if output_prefix.count('/') > 0:
         click.echo("Output prefix cannot be path to a different directory. Try using --outdir.")
@@ -380,18 +388,17 @@ def merge(insertion_seqs_tsv, output_prefix, filt_min_merged_length, filt_min_fl
         sys.exit()
 
     sites = merge_sites.merge(insertion_seqs_tsv, filt_min_merged_length, filt_min_flank_length, min_pairwise_identity,
-                              min_softclip_pair_distance, max_softclip_pair_distance, output_prefix, outdir)
+                              min_softclip_pair_distance, max_softclip_pair_distance, output_prefix, lenient, outdir)
     sites = sites.sort_values(['contig', 'left_site', 'right_site'])
     output.dataframe_to_stdout(sites)
 
 
 @click.command()
 @click.argument('insertion_seqs_tsv', type=click.Path(exists=True))
-@click.argument('ref_genome', type=click.Path(exists=True))
 @click.argument('comp_genome', type=click.Path(exists=True))
 @click.argument('output_prefix')
 @click.option('--outdir', help="Indicate the directory where you want to write the output files. Default is the output given output prefix")
-def recover(insertion_seqs_tsv, ref_genome, comp_genome, output_prefix, outdir):
+def recover(insertion_seqs_tsv, comp_genome, output_prefix, outdir):
 
     if output_prefix.count('/') > 0:
         click.echo("Output prefix cannot be path to a different directory. Try using --outdir.")
@@ -411,8 +418,20 @@ def recover(insertion_seqs_tsv, ref_genome, comp_genome, output_prefix, outdir):
     click.echo("Reading in the specified insertion sequences...")
     header = ['contig', 'left_site', 'right_site', 'orientation', 'partner_site', 'assembly']
     insertion_seqs = pd.read_csv(insertion_seqs_tsv, sep='\t')[header]
+    recover_sequences.run(insertion_seqs, comp_genome, output_prefix, outdir)
 
-    recover_sequences.run(insertion_seqs, ref_genome, comp_genome, output_prefix, outdir)
+
+@click.command()
+@click.argument('insertion_seqs_tsv', type=click.Path(exists=True))
+def makefasta(insertion_seqs_tsv):
+
+    header = ['contig', 'left_site', 'right_site', 'orientation', 'partner_site', 'assembly_length', 'assembly']
+    insertion_seqs = pd.read_csv(insertion_seqs_tsv, sep='\t')
+    if 'id' in list(insertion_seqs.columns.values):
+        header = ['id'] + header
+    insertion_seqs = insertion_seqs[header]
+
+    output.write_table_to_fasta_stdout(insertion_seqs)
 
 
 # Now set up the click arguments
@@ -428,6 +447,7 @@ cli.add_command(find)
 cli.add_command(merge)
 cli.add_command(recover)
 cli.add_command(call)
+cli.add_command(makefasta)
 
 
 if __name__ == '__main__':
