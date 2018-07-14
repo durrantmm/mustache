@@ -1,23 +1,29 @@
 from collections import defaultdict, OrderedDict
 import pandas as pd
-from mustache import misc
+from mustache import misc, bam_tools
 from scipy.stats import poisson
 import numpy as np
 import click
 import sys
 
 
+
 def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, min_softclip_count, min_softclip_pair_distance, max_softclip_pair_distance):
 
-    soft_clips = defaultdict(lambda: defaultdict(set))
-
     contigs = misc.get_bam_contig_dict(bam_file)
+    click.echo("\tFinding all contigs with at least one read alignment...")
+    all_contigs_with_reads = bam_tools.get_contigs_with_reads(bam_file)
 
     if contig:
         contigs = {contig: contigs[contig]}
+    else:
+        contigs = {contig: contigs[contig] for contig in all_contigs_with_reads}
 
     all_softclipped_sites = None
     for contig in contigs:
+
+        soft_clips = defaultdict(lambda: defaultdict(set))
+
         click.echo("\tProcessing softclipped sites on contig %s..." % contig)
         for read in bam_file.fetch(contig, start, stop):
 
@@ -31,10 +37,16 @@ def get_softclipped_sites(bam_file, contig, start, stop, min_softclip_length, mi
 
         click.echo("\tGetting softclip counts...")
         soft_clip_counts = get_softclip_counts(soft_clips)
+        if soft_clip_counts.shape[0] == 0:
+            click.echo("\tNo softclipped sites identified on contig %s" % contig)
+            continue
+
+        print(soft_clip_counts)
         click.echo("\tFiltering softclipped sites...")
         soft_clip_counts_filtered = filter_softclip_counts(soft_clip_counts, min_softclip_count, contigs[contig], min_softclip_pair_distance, max_softclip_pair_distance)
 
         if soft_clip_counts_filtered is None:
+            click.echo("\tNo softclipped sites identified on contig %s" % contig)
             continue
 
         if all_softclipped_sites is None:

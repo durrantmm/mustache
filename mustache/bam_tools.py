@@ -6,6 +6,11 @@ from Bio import SeqIO
 from os.path import join
 from snakemake import shell
 
+def get_contigs_with_reads(bam_file):
+    contigs = set()
+    for r in bam_file.fetch():
+        contigs.add(r.reference_name)
+    return(list(contigs))
 
 def get_flank_read_count(genome, contig, site, orientation, flank_assembly, unmapped_reads, softclipped_reads,
                          flank_length, outdir, site_name, min_alignment_overlap=1, min_alignment_overlap_count=0):
