@@ -1,9 +1,1 @@
-import sys
-
-
-def main():
-    pass
-
-
-if __name__ == '__main__':
-    main()
+BLASTDB = '/labs/asbhatt/mdurrant/PROJECTS/MUSTACHE/00.CODE/mustache/data/mergem_blast_db/mergem'

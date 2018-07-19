@@ -30,18 +30,20 @@ Once complete, you can check to see if mustache installed properly by simply typ
    
 This can then be called from anywhere on the file system while in the `mustache` conda environment.
 
-# Running `mustache align`
+# Running `mustache alignbwa`
 Mustache uses BWA to align reads to a reference genome fasta, but it has to properly format the alignment files in order
-for them to be compatible with mustache.
+for them to be compatible with certain mustache tools, such as alignment_anchord assembly.
 
 We've built in the BWA alignment into the mustache tool, so that you don't have to worry about properly formatting the BAM file.
 
 The format of the argument is
 
-    mustache align (paired|single) FASTQ1 [<FASTQ2>] GENOME OUT_BAM
+    python alignbwa.py GENOME OUT_BAM FASTQ1 [<FASTQ2>] 
+or
+  
+    mustache align GENOME OUT_BAM FASTQ1 [<FASTQ2>] 
     
-Where the user specifies either paired-end or single-end whole genome sequencing, the 1-2 corresponding FASTQ files,
-the reference genome to align to, and the path to the output BAM file.
+Whether or not the alignment is paired-end is determined by whether one or two fastq files are provided.
 
 # Running `mustache find`
 The `mustache find` command takes the BAM file produced above and identifies insertion sequences, their genomic loci, 

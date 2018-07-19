@@ -1,62 +1,129 @@
 import sys
 
-verbose=True
-logger = gogo.Gogo(__name__, verbose=verbose).logger
+def left_softclip_length(read):
+    return read.cigartuples[0][1]
 
-def index_genome(genome_path, silence=True):
-    if silence:
-        shell('bwa index {genome_path} 2> /dev/null;'.format(genome_path=genome_path))
-    else:
-        shell('bwa index {genome_path}'.format(genome_path=genome_path))
+def right_softclip_length(read):
+    return read.cigartuples[-1][1]
 
-    return genome_is_indexed(genome_path)
-
-def genome_is_indexed(genome_path):
-
-    amb = genome_path + '.amb'
-    ann = genome_path + '.ann'
-    bwt = genome_path + '.bwt'
-    pac = genome_path + '.pac'
-    sa = genome_path + '.sa'
-
-    index_files = [amb, ann, bwt, pac, sa]
-
-    indexed = True
-    files = glob(genome_path+'*')
-    for f in index_files:
-        if f not in files:
-            indexed = False
-
-    return indexed
-
-def align_to_genome_pe(fastq1, fastq2, genome_path, out_sam, threads=1, verbose=False):
-    if verbose:
-        command = "bwa mem -t {threads} {genome_path} {fastq1} {fastq2} > {out_sam}; ".format(
-            genome_path=genome_path, fastq1=fastq1, fastq2=fastq2, out_sam=out_sam, threads=threads)
-    else:
-        command = "bwa mem -t {threads} {genome_path} {fastq1} {fastq2} 2> /dev/null 1> {out_sam}; ".format(
-            genome_path=genome_path, fastq1=fastq1, fastq2=fastq2, out_sam=out_sam, threads=threads)
-
-    logger.debug("Executing command: %s" % command)
-    shell(command)
-
-    if isfile(out_sam):
+def is_right_softclipped_lenient(read):
+    if read.cigartuples[-1][0] == 4:
+        return True
+    elif read.query_sequence[-1] != read.get_reference_sequence()[-1]:
         return True
     else:
         return False
 
-def align_to_genome_se(fastq1, genome_path, out_sam, threads=1, verbose=False):
-    if verbose:
-        command = "bwa mem -t {threads} {genome_path} {fastq1} > {out_sam}; ".format(
-            genome_path=genome_path, fastq1=fastq1, out_sam=out_sam, threads=threads)
-    else:
-        command = "bwa mem -t {threads} {genome_path} {fastq1} 2> /dev/null 1> {out_sam}; ".format(
-            genome_path=genome_path, fastq1=fastq1, out_sam=out_sam, threads=threads)
-
-    logger.debug("Executing command: %s" % command)
-    shell(command)
-
-    if isfile(out_sam):
+def is_left_softclipped_lenient(read):
+    if read.cigartuples[0][0] == 4:
+        return True
+    elif read.query_sequence[0] != read.get_reference_sequence()[0]:
         return True
     else:
         return False
+
+def is_left_softclipped_lenient_at_site(read, contig, pos):
+    if not is_left_softclipped_lenient(read):
+        return False
+    if left_softclipped_site_lenient(read) == (contig, pos):
+        return True
+    else:
+        return False
+
+def is_right_softclipped_lenient_at_site(read, contig, pos):
+    if not is_right_softclipped_lenient(read):
+        return False
+    if right_softclipped_site_lenient(read) == (contig, pos):
+        return True
+    else:
+        return False
+
+def is_left_softclipped_strict(read):
+    if read.cigartuples[0][0] == 4:
+        return True
+    else:
+        return False
+
+def is_right_softclipped_strict(read):
+    if read.cigartuples[-1][0] == 4:
+        return True
+    else:
+        return False
+
+def get_right_softclip_length(read):
+    if is_right_softclipped_lenient(read):
+        if read.cigartuples[-1][0] == 4:
+            return read.cigartuples[-1][1]
+        else:
+            return 1
+    else:
+        return 0
+
+def get_right_softclip_length_strict(read):
+    if is_right_softclipped_strict(read):
+        return read.cigartuples[-1][1]
+    else:
+        return 0
+
+def get_left_softclip_length(read):
+    if is_left_softclipped_lenient(read):
+        if read.cigartuples[0][0] == 4:
+            return read.cigartuples[0][1]
+        else:
+            return 1
+    else:
+        return 0
+
+def get_left_softclip_length_strict(read):
+    if is_left_softclipped_strict(read):
+        return read.cigartuples[0][1]
+    else:
+        return 0
+
+def right_softclipped_site_lenient(read):
+    if read.cigartuples[-1][0] == 4:
+        return read.reference_name, read.get_reference_positions()[-1] + 1
+    elif read.query_sequence[-1] != read.get_reference_sequence()[-1]:
+        return read.reference_name, read.get_reference_positions()[-1]
+
+def left_softclipped_site_lenient(read):
+    if read.cigartuples[0][0] == 4:
+        return read.reference_name, read.get_reference_positions()[0] - 1
+    elif read.query_sequence[0] != read.get_reference_sequence()[0]:
+        return read.reference_name, read.get_reference_positions()[0]
+
+def right_softclipped_sequence(read):
+    if is_right_softclipped_lenient(read):
+        if read.cigartuples[-1][0] == 4:
+            return read.query_sequence[-read.cigartuples[-1][1]:]
+        else:
+            return read.query_sequence[-1]
+    else:
+        return ''
+
+def right_softclip_qualities(read):
+    if is_right_softclipped_lenient(read):
+        if read.cigartuples[-1][0] == 4:
+            return list(read.query_qualities)[-read.cigartuples[-1][1]:]
+        else:
+            return [list(read.query_qualities)[-1]]
+    else:
+        return []
+
+def left_softclipped_sequence(read):
+    if is_left_softclipped_lenient(read):
+        if read.cigartuples[0][0] == 4:
+            return read.query_sequence[:read.cigartuples[0][1]]
+        else:
+            return read.query_sequence[0]
+    else:
+        return ''
+
+def left_softclip_qualities(read):
+    if is_left_softclipped_lenient(read):
+        if read.cigartuples[0][0] == 4:
+            return list(read.query_qualities)[:read.cigartuples[0][1]]
+        else:
+            return [list(read.query_qualities)[0]]
+    else:
+        return []

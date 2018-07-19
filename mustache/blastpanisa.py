@@ -12,25 +12,25 @@ verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
 
-def _blastpairs(pairsfile, blastdb=None, output_file=None):
+def _blastpanisa(panisafile, blastdb=None, output_file=None):
 
     if not blastdb:
         blastdb = BLASTDB
 
-    flanks = pd.read_csv(pairsfile, sep='\t')
+    panisa = pd.read_csv(panisafile, sep='\t')
 
     logger.info("Writing flank pairs to fasta file...")
-    tmp_flanks_fasta = '/tmp/mustache.blastpairs.' + str(randint(0, 1e100)) + '.fasta'
-    fastatools.write_flanks_to_fasta(flanks, tmp_flanks_fasta)
+    tmp_flanks_fasta = '/tmp/mustache.blastpanisa.' + str(randint(0, 1e100)) + '.fasta'
+    fastatools.write_panisa_flanks_to_fasta(panisa, tmp_flanks_fasta)
 
-    logger.info("Blasting flank pairs against database found at %s" % blastdb)
-    tmp_flanks_blast = '/tmp/mustache.blastpairs.' + str(randint(0, 1e100)) + '.blast.txt'
+    logger.info("Blasting panISa flank pairs against database found at %s" % blastdb)
+    tmp_flanks_blast = '/tmp/mustache.blastpanisa.' + str(randint(0, 1e100)) + '.blast.txt'
     blasttools.blast_fasta(tmp_flanks_fasta, blastdb, tmp_flanks_blast)
 
     logger.info("Processing blast results %s" % blastdb)
     blast_results = blasttools.process_blast_results(tmp_flanks_blast)
 
-    final_results = flanks.join(blast_results, how='left')
+    final_results = panisa.join(blast_results, how='left')
 
     noblast = final_results.query("evalue_5p != evalue_5p & evalue_3p != evalue_3p")
 
@@ -47,12 +47,12 @@ def _blastpairs(pairsfile, blastdb=None, output_file=None):
 
 
 @click.command()
-@click.argument('pairsfile', type=click.Path(exists=True))
+@click.argument('panisafile', type=click.Path(exists=True))
 @click.option('--blastdb', '-db')
 @click.option('--output_file', '-o', default='mustache.blastpairs.tsv', help="The output file to save the results.")
-def blastpairs(pairsfile, blastdb=None, output_file=None):
-    _blastpairs(pairsfile, blastdb, output_file)
+def blastpanisa(panisafile, blastdb=None, output_file=None):
+    _blastpanisa(panisafile, blastdb, output_file)
 
 
 if __name__ == '__main__':
-    blastpairs()
+    blastpanisa()

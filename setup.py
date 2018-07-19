@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mustache",
-    version='0.1.1',
+    version='0.3.1',
     description='Tool to identify insertion sequences from whole-genome sequencing data.',
     url='https://github.com/durrantmm/mustache',
     author="Matt Durrant",
@@ -12,14 +12,14 @@ setup(
     include_package_data=True,
     install_requires=[
         'click',
-        'pysam',
+        'pygogo',
         'snakemake',
-        'biopython',
-        'scipy',
         'pandas',
-        'statsmodels',
-        'numpy',
-        'tqdm'
+        'biopython',
+        'pysam==0.13',
+        'cython',
+        'jellyfish',
+        'scipy'
     ],
     zip_safe=False,
     entry_points = {
