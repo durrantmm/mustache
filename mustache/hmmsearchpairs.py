@@ -13,11 +13,11 @@ verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
 
-# python mustache/findtransposase.py test/example_pairedflanks_tsv.txt 
+# python mustache/hmmsearchpairs.py test/example_pairedflanks_tsv.txt 
 
 # Run hmmsearch on the translated proteins using the ISEScan clusters.faa.hmm file
 # Assign each sequence to an IS cluster if it has a hit
-def _findtransposase(pairsfile, output_file=None, hmmdb=None):
+def _hmmsearchpairs(pairsfile, output_file=None, hmmdb=None):
 
 	if not hmmdb:
 		hmmdb = HMMDB
@@ -25,17 +25,17 @@ def _findtransposase(pairsfile, output_file=None, hmmdb=None):
 	flanks = pd.read_csv(pairsfile, sep='\t')
 	
 	logger.info("Writing flank pairs to fasta file...")
-	tmp_flanks_fasta = '/tmp/mustache.findtransposase.' + str(randint(0, 1e100)) + '.fasta'
+	tmp_flanks_fasta = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.fasta'
 	fastatools.write_flanks_to_fasta(flanks, tmp_flanks_fasta)
 	
 	logger.info("Running FragGeneScan on flanks on %s..." % tmp_flanks_fasta)
-	tmp_flanks_translate = '/tmp/mustache.findtransposase.' + str(randint(0, 1e100)) + '.translate'
+	tmp_flanks_translate = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.translate'
 	fraggenescantools.run_fraggenescan(tmp_flanks_fasta, tmp_flanks_translate)
 	
 	
 	logger.info("Running hmmsearch on %s..." % tmp_flanks_translate)
 	tmp_flanks_translate = tmp_flanks_translate + ".faa"
-	tmp_hmm_results = '/tmp/mustache.findtransposase.' + str(randint(0, 1e100)) + '.hmmresults'
+	tmp_hmm_results = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.hmmresults'
 	hmmtools.run_hmmsearch(tmp_flanks_translate, tmp_hmm_results, hmmdb)
 	
 	hmm_results = hmmtools.process_hmm_results(tmp_hmm_results)
@@ -58,10 +58,10 @@ def _findtransposase(pairsfile, output_file=None, hmmdb=None):
 
 @click.command()
 @click.argument('pairsfile', type=click.Path(exists=True))
-@click.option('--output_file', '-o', default='mustache.findtransposase.tsv', help="The output file to save the results.")
-def findtransposase(pairsfile, output_file=None):
-    _findtransposase(pairsfile, output_file)
+@click.option('--output_file', '-o', default='mustache.hmmsearchpairs.tsv', help="The output file to save the results.")
+def hmmsearchpairs(pairsfile, output_file=None):
+    _hmmsearchpairs(pairsfile, output_file)
 
 
 if __name__ == '__main__':
-    findtransposase()
+    hmmsearchpairs()

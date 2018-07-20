@@ -61,7 +61,7 @@ def process_blast_results(blast_results, evalue_cutoff=0.01):
             results[index][orient]['is_name'] = ';'.join(list(results[index][orient]['is_name']))
             results[index][orient]['is_family'] = ';'.join(list(results[index][orient]['is_family']))
 
-    header = ['evalue_5p', 'evalue_3p', 'IS_5p', 'IS_3p', 'IS_family_5p', 'IS_family_3p']
+    header = ['blast_evalue_5p', 'blast_evalue_3p', 'blast_IS_5p', 'blast_IS_3p', 'blast_IS_family_5p', 'blast_IS_family_3p']
     final_results = dict()
     for index in results:
         if '5p' in results[index] and '3p' in results[index]:
