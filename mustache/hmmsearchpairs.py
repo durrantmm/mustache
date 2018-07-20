@@ -7,6 +7,7 @@ from snakemake import shell
 from mustache import fastatools, embosstools, fraggenescantools, hmmtools
 from random import randint
 from mustache.config import HMMDB
+from os.path import isfile
 
 
 verbose=True
@@ -31,12 +32,17 @@ def _hmmsearchpairs(pairsfile, output_file=None, hmmdb=None):
 	logger.info("Running FragGeneScan on flanks on %s..." % tmp_flanks_fasta)
 	tmp_flanks_translate = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.translate'
 	fraggenescantools.run_fraggenescan(tmp_flanks_fasta, tmp_flanks_translate)
-	
-	
+
+	has_fraggene_output = True
+	if not isfile(tmp_flanks_translate):
+		has_fraggene_output = False
+
 	logger.info("Running hmmsearch on %s..." % tmp_flanks_translate)
 	tmp_flanks_translate = tmp_flanks_translate + ".faa"
 	tmp_hmm_results = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.hmmresults'
-	hmmtools.run_hmmsearch(tmp_flanks_translate, tmp_hmm_results, hmmdb)
+
+	if has_fraggene_output:
+		hmmtools.run_hmmsearch(tmp_flanks_translate, tmp_hmm_results, hmmdb)
 	
 	hmm_results = hmmtools.process_hmm_results(tmp_hmm_results)
 	

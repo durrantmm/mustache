@@ -4,6 +4,7 @@ import pandas as pd
 from random import randint
 from Bio.Seq import Seq
 from Bio.Alphabet import IUPAC
+from os.path import isfile
 
 # conda install -c biocore hmmer
 
@@ -20,49 +21,52 @@ def run_hmmsearch(fasta, outfile, database, threads=2):
 def process_hmm_results(hmm_results, evalue_cutoff=0.01):
 	
 	results = dict()
-	with open(hmm_results) as infile:
-		for i in range(3):
-			skip = infile.readline()
-		header = ["target", "accession", "query", "accession", "E-value", "score", "bias"]
-		for l in infile:
-			if "#" not in l:
-				line = l.strip().split()[0:7]			
-				line = {header[i]:line[i] for i in range(len(line))}	
-				
-				identifier = line['target']
-				is_name = line['query'].split(".")[0]
-				evalue = float(line['E-value'])
-				
-				if evalue > evalue_cutoff:
-					continue
-				
-				#strand = identifier.split("_")[-1] # + or -
-				orient = identifier.split("_")[1] # 5p or 3p
-				index = int(identifier.split("_")[0])
-				start_pos = identifier.split("_")[2]
-				end_pos = identifier.split("_")[3]			
-				if index in results and orient in results[index]:
-					current_evalue = results[index][orient]['evalue']
-					if evalue < current_evalue:
+
+	if isfile(hmm_results):
+
+		with open(hmm_results) as infile:
+			for i in range(3):
+				skip = infile.readline()
+			header = ["target", "accession", "query", "accession", "E-value", "score", "bias"]
+			for l in infile:
+				if "#" not in l:
+					line = l.strip().split()[0:7]
+					line = {header[i]:line[i] for i in range(len(line))}
+
+					identifier = line['target']
+					is_name = line['query'].split(".")[0]
+					evalue = float(line['E-value'])
+
+					if evalue > evalue_cutoff:
+						continue
+
+					#strand = identifier.split("_")[-1] # + or -
+					orient = identifier.split("_")[1] # 5p or 3p
+					index = int(identifier.split("_")[0])
+					start_pos = identifier.split("_")[2]
+					end_pos = identifier.split("_")[3]
+					if index in results and orient in results[index]:
+						current_evalue = results[index][orient]['evalue']
+						if evalue < current_evalue:
+							results[index][orient]['evalue'] = evalue
+							results[index][orient]['is_name'] = set([is_name])
+							results[index][orient]['start_pos'] = set([start_pos])
+							results[index][orient]['end_pos'] = set([end_pos])
+						elif evalue == current_evalue:
+							results[index][orient]['is_name'].add(is_name)
+					elif index in results:
+						results[index][orient] = dict()
 						results[index][orient]['evalue'] = evalue
 						results[index][orient]['is_name'] = set([is_name])
 						results[index][orient]['start_pos'] = set([start_pos])
 						results[index][orient]['end_pos'] = set([end_pos])
-					elif evalue == current_evalue:
-						results[index][orient]['is_name'].add(is_name)
-				elif index in results:
-					results[index][orient] = dict()
-					results[index][orient]['evalue'] = evalue
-					results[index][orient]['is_name'] = set([is_name])
-					results[index][orient]['start_pos'] = set([start_pos])
-					results[index][orient]['end_pos'] = set([end_pos])
-				else:
-					results[index] = dict()
-					results[index][orient] = dict()
-					results[index][orient]['evalue'] = evalue
-					results[index][orient]['is_name'] = set([is_name])
-					results[index][orient]['start_pos'] = set([start_pos])
-					results[index][orient]['end_pos'] = set([end_pos])
+					else:
+						results[index] = dict()
+						results[index][orient] = dict()
+						results[index][orient]['evalue'] = evalue
+						results[index][orient]['is_name'] = set([is_name])
+						results[index][orient]['start_pos'] = set([start_pos])
+						results[index][orient]['end_pos'] = set([end_pos])
 			
 	for index in results:
 		for orient in results[index]:
