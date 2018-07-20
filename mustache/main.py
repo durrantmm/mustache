@@ -55,7 +55,7 @@ def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
 
     logger.info("BEGINNING HMMSEARCHPAIRS...")
     hmmsearchpairs_output_file = output_prefix + '.hmmsearchpairs.tsv'
-    if not (checkexist and isfile(blastpairs_output_file)):
+    if not (checkexist and isfile(hmmsearchpairs_output_file)):
         checkexist = False
         _hmmsearchpairs(blastpairs_output_file, output_file=hmmsearchpairs_output_file)
     else:
@@ -115,7 +115,7 @@ def paired_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
 
     logger.info("BEGINNING HMMSEARCHPAIRS...")
     hmmsearchpairs_output_file = output_prefix + '.hmmsearchpairs.tsv'
-    if not (checkexist and isfile(blastpairs_output_file)):
+    if not (checkexist and isfile(hmmsearchpairs_output_file)):
         checkexist = False
         _hmmsearchpairs(blastpairs_output_file, output_file=hmmsearchpairs_output_file )
     else:
