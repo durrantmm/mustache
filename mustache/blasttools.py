@@ -43,6 +43,7 @@ def process_blast_results(blast_results, evalue_cutoff=0.01):
                 elif evalue == current_evalue:
                     results[index][orient]['is_name'].add(is_name)
                     results[index][orient]['is_family'].add(is_family)
+
             elif index in results:
                 results[index][orient] = dict()
                 results[index][orient]['evalue'] = evalue
