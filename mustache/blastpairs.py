@@ -32,7 +32,7 @@ def _blastpairs(pairsfile, blastdb=None, output_file=None):
 
     final_results = flanks.join(blast_results, how='left')
 
-    noblast = final_results.query("evalue_5p != evalue_5p & evalue_3p != evalue_3p")
+    noblast = final_results.query("blast_evalue_5p != blast_evalue_5p & blast_evalue_3p != blast_evalue_3p")
 
     logger.info("%d sequence pairs blasted to an IS...", final_results.shape[0] - noblast.shape[0])
     if output_file:
