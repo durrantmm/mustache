@@ -101,6 +101,12 @@ def right_softclipped_sequence(read):
     else:
         return ''
 
+def right_softclipped_sequence_strict(read):
+    if is_right_softclipped_strict(read):
+        return read.query_sequence[-read.cigartuples[-1][1]:]
+    else:
+        return ''
+
 def right_softclip_qualities(read):
     if is_right_softclipped_lenient(read):
         if read.cigartuples[-1][0] == 4:
@@ -116,6 +122,12 @@ def left_softclipped_sequence(read):
             return read.query_sequence[:read.cigartuples[0][1]]
         else:
             return read.query_sequence[0]
+    else:
+        return ''
+
+def left_softclipped_sequence_strict(read):
+    if is_left_softclipped_strict(read):
+        return read.query_sequence[:read.cigartuples[0][1]]
     else:
         return ''
 

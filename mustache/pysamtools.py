@@ -5,9 +5,16 @@ def get_softclipped_seqs_qualities(bam_file, contig, pos, orient, min_alignment_
     softclipped_seqs = []
     softclipped_qualities = []
 
-    start, end = pos - 1, pos
+    if orient == 'R':
+        start, end = pos - 1, pos
+        if start < 0:
+            start = 0
+
     if orient == 'L':
         start, end = pos + 1, pos + 2
+
+        if end > contig_length(bam_file, contig):
+            end = contig_length(bam_file, contig)
 
     for pu in bam_file.pileup(contig, start, end, truncate=True):
         for pr in pu.pileups:
@@ -37,7 +44,14 @@ def get_softclipped_seqs_qualities(bam_file, contig, pos, orient, min_alignment_
 def get_left_softclipped_reads_at_site(bam_file, contig, left_site, softclip_only=False):
     left_softclipped_reads = []
 
-    for pu in bam_file.pileup(contig, left_site + 1, left_site + 2, truncate=True):
+    start = left_site + 1
+    end = left_site + 2
+
+    contig_len = contig_length(bam_file, contig)
+    if end > contig_len:
+        end = contig_len
+
+    for pu in bam_file.pileup(contig, start, end, truncate=True):
 
         for pr in pu.pileups:
             read = pr.alignment
@@ -55,7 +69,13 @@ def get_left_softclipped_reads_at_site(bam_file, contig, left_site, softclip_onl
 def get_right_softclipped_reads_at_site(bam_file, contig, right_site, softclip_only=False):
     right_softclipped_reads = []
 
-    for pu in bam_file.pileup(contig, right_site - 1, right_site, truncate=True):
+    start = right_site - 1
+    end = right_site
+
+    if start < 0:
+        start = 0
+
+    for pu in bam_file.pileup(contig, start, end, truncate=True):
 
         for pr in pu.pileups:
             read = pr.alignment
@@ -72,7 +92,13 @@ def get_right_softclipped_reads_at_site(bam_file, contig, right_site, softclip_o
 def get_right_unmapped_reads(bam_file, contig, right_site, search_region_length=500):
     right_unmapped_reads = []
 
-    for read in bam_file.fetch(contig, right_site - search_region_length, right_site):
+    start = right_site - search_region_length
+    end = right_site
+
+    if start < 0:
+        start = 0
+
+    for read in bam_file.fetch(contig, start, end):
 
         if (not read.is_reverse) and read.mate_is_unmapped:
             right_unmapped_reads.append(read.get_tag('MT'))
@@ -83,9 +109,19 @@ def get_right_unmapped_reads(bam_file, contig, right_site, search_region_length=
 def get_left_unmapped_reads(bam_file, contig, left_site, search_region_length=500):
     left_unmapped_reads = []
 
-    for read in bam_file.fetch(contig, left_site + 1, left_site + 1 + search_region_length):
+    start = left_site + 1
+    end = left_site + 1 + search_region_length
+
+    contig_len = contig_length(bam_file, contig)
+    if end > contig_len:
+        end = contig_len
+
+    for read in bam_file.fetch(contig, start, end):
 
         if read.is_reverse and read.mate_is_unmapped:
             left_unmapped_reads.append(read.get_tag('MT'))
 
     return left_unmapped_reads
+
+def contig_length(bam, contig):
+    return dict(zip(bam.references, bam.lengths))[contig]

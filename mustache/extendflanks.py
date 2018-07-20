@@ -27,7 +27,7 @@ def extend(bam, contig, pos, orient, seq):
 
     assembler.align_seq_to_assembly(seq)
     extended_seq = assembler.retrieve_extended_sequence(orient)
-
+    assembler.delete_files()
     return extended_seq
 
 def get_reads_to_assemble(bam, contig, pos, orient):
@@ -44,21 +44,25 @@ def get_reads_to_assemble(bam, contig, pos, orient):
 
 def _extendflanks(flanksfile, bamfile, output_file):
 
-    logger.info("Beginning extendflanks algorithm...")
+
     flanks = pd.read_csv(flanksfile, sep='\t')
     bam = pysam.AlignmentFile(bamfile, 'rb')
 
     sequences = list(flanks['consensus_seq'])
     did_extend = [False]*len(sequences)
 
+    logger.info("Running extendflanks algorithm on %d total flanks..." % flanks.shape[0])
+
     count = 0
     for index, row in flanks.iterrows():
+
         count += 1
         if count % 100 == 0:
             logger.info("\tProcessed %d flanks so far, and extended %d total flanks..." % (count, sum(did_extend)))
 
         contig, pos, orient, seq = row[['contig', 'pos', 'orient', 'consensus_seq']]
 
+        print(contig, pos, orient)
 
         extension = extend(bam, contig, pos, orient, seq)
         if extension:

@@ -8,6 +8,7 @@ import pysam
 import time, timeit
 from random import randint
 from mustache.bwatools import index_genome, align_to_genome_se
+from mustache.sctools import left_softclipped_sequence_strict, right_softclipped_sequence_strict
 from mustache.misc import revcomp
 
 class MinimusAssembler:
@@ -38,8 +39,10 @@ class MinimusAssembler:
         os.makedirs(outdir, exist_ok=True)
 
     def delete_files(self):
-        shell('rm -rf {reads} {afg} {outprefix}.bnk {outprefix}.fasta'.format(outprefix=self.full_outprefix,
-                                                                              afg=self.afg_path, reads=self.reads_path))
+        shell('rm -rf {reads} {afg} {align_seq_fasta} {align_sam} '
+              '{outprefix}.bnk {outprefix}.fasta'.format(outprefix=self.full_outprefix, afg=self.afg_path,
+                                                         align_seq_fasta=self.align_seq_fasta_path,
+                                                         align_sam=self.align_sam_path, reads=self.reads_path))
 
     def delete_afg_bank(self):
         shell('rm -rf {afg} {outprefix}.bnk'.format(outprefix=self.full_outprefix, afg=self.afg_path,
@@ -129,19 +132,23 @@ class MinimusAssembler:
             if orient == 'R' and (not read.is_reverse):
                 if len(current_contig.seq) - read.reference_start <= query_length:
                     return None
-                extension = current_contig.seq[read.reference_start:]
+                softclip = left_softclipped_sequence_strict(read)
+                extension = softclip + current_contig.seq[read.reference_start:]
             elif orient == 'R' and read.is_reverse:
                 if read.reference_start <= query_length:
                     return None
-                extension = revcomp(current_contig.seq[:read.reference_end])
+                softclip = right_softclipped_sequence_strict(read)
+                extension = revcomp(current_contig.seq[:read.reference_end] + softclip)
             elif orient == 'L' and (not read.is_reverse):
                 if read.reference_start <= query_length:
                     return None
-                extension = current_contig.seq[:read.reference_end]
+                softclip = right_softclipped_sequence_strict(read)
+                extension = current_contig.seq[:read.reference_end] + softclip
             elif orient == 'L' and read.is_reverse:
                 if len(current_contig.seq) - read.reference_start <= query_length:
                     return None
-                extension = revcomp(current_contig.seq[read.reference_start:])
+                softclip = left_softclipped_sequence_strict(read)
+                extension = revcomp(softclip + current_contig.seq[read.reference_start:])
 
         return extension
 

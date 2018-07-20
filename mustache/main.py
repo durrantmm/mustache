@@ -6,6 +6,7 @@ from mustache.blastpairs import blastpairs, _blastpairs
 from mustache.blastpanisa import blastpanisa
 from mustache.extendflanks import extendflanks, _extendflanks
 import pygogo as gogo
+from os.path import isfile
 
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
@@ -50,29 +51,41 @@ def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
 @click.option('--min_softclip_count', '-mincount', default=10, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
 @click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
 @click.option('--blastdb', '-blastdb')
-@click.option('--findflanks/--no-findflanks', default=True)
+@click.option('--checkexist/--no-checkexist', default=True)
 def paired_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softclip_count, min_alignment_quality, blastdb,
-                        findflanks):
+                        checkexist):
+
 
     logger.info("BEGINNING FINDFLANKS...")
     findflanks_output_file = output_prefix + '.findflanks.tsv'
-    if findflanks:
+    if not (checkexist and isfile(findflanks_output_file)):
         _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, findflanks_output_file)
+    else:
+        logger.info("OUTPUT FILE %s ALREADY EXISTS..." % findflanks_output_file)
     logger.info('')
 
     logger.info("BEGINNING EXTENDFLANKS...")
     extendflanks_output_file = output_prefix + '.extendflanks.tsv'
-    _extendflanks(findflanks_output_file, bamfile, extendflanks_output_file)
+    if not (checkexist and isfile(extendflanks_output_file)):
+        _extendflanks(findflanks_output_file, bamfile, extendflanks_output_file)
+    else:
+        logger.info("OUTPUT FILE %s ALREADY EXISTS..." % extendflanks_output_file)
     logger.info('')
 
     logger.info("BEGINNING PAIRFLANKS...")
     pairs_output_file = output_prefix + '.pairflanks.tsv'
-    _pairflanks(extendflanks_output_file, pairs_output_file)
+    if not (checkexist and isfile(pairs_output_file)):
+        _pairflanks(extendflanks_output_file, pairs_output_file)
+    else:
+        logger.info("OUTPUT FILE %s ALREADY EXISTS..." % pairs_output_file)
     logger.info('')
 
     logger.info("BEGINNING BLASTPAIRS...")
     blastpairs_output_file = output_prefix + '.blastpairs.tsv'
-    _blastpairs(pairs_output_file, output_file=blastpairs_output_file)
+    if not (checkexist and isfile(blastpairs_output_file)):
+        _blastpairs(pairs_output_file, output_file=blastpairs_output_file)
+    else:
+        logger.info("OUTPUT FILE %s ALREADY EXISTS..." % blastpairs_output_file)
     logger.info('')
 
     logger.info("MUSTACHE PAIRED-END PIPELINE COMPLETED SUCCESSFULLY.")

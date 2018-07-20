@@ -25,6 +25,10 @@ def process_blast_results(blast_results, evalue_cutoff=0.01):
             qseqid = line['qseqid']
             stitle = line['stitle']
             evalue = float(line['evalue'])
+
+            if evalue > evalue_cutoff:
+                continue
+
             is_name = stitle.split()[1]
             is_family = stitle.split()[2]
             index = int(qseqid.split('_')[0])
@@ -32,7 +36,7 @@ def process_blast_results(blast_results, evalue_cutoff=0.01):
 
             if index in results and orient in results[index]:
                 current_evalue = results[index][orient]['evalue']
-                if evalue > current_evalue:
+                if evalue < current_evalue:
                     results[index][orient]['evalue'] = evalue
                     results[index][orient]['is_name'] = set([is_name])
                     results[index][orient]['is_family'] = set([is_family])
