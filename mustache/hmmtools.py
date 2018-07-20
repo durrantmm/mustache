@@ -73,7 +73,7 @@ def process_hmm_results(hmm_results, evalue_cutoff=0.01):
 			#print(index, orient, results[index][orient]['is_name'], results[index][orient]['evalue'])
 			
 			
-	header = ['evalue_5p', 'evalue_3p', 'IS_5p', 'IS_3p', 'start_pos_5p', 'end_pos_5p', 'start_pos_3p', 'end_pos_5p']
+	header = ['evalue_5p', 'evalue_3p', 'IS_5p', 'IS_3p', 'start_pos_5p', 'end_pos_5p', 'start_pos_3p', 'end_pos_3p']
 	
 	final_results = dict()
 	for index in results:
