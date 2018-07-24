@@ -51,7 +51,7 @@ class MinimusAssembler:
     def assemble(self, min_overlap_length=10, min_overlap_count=2, stranded=False):
         self.write_reads_as_fasta()
         self.delete_afg_bank()
-        shell("toAmos -s {reads_path} -o {afg_path};".format(reads_path=self.reads_path,
+        shell("toAmos -s {reads_path} -o {afg_path} 2> /dev/null;".format(reads_path=self.reads_path,
                                                                           afg_path=self.afg_path), read=True)
         shell("bank-transact -f -z -b {out_prefix}.bnk -m {out_prefix}.afg 2> /dev/null;".format(
             out_prefix=self.full_outprefix), read=True)

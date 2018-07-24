@@ -21,30 +21,39 @@ def _hmmsearchpairs(pairsfile, output_file=None, hmmdb=None):
     if not hmmdb:
         hmmdb = HMMDB
 
-    flanks = pd.read_csv(pairsfile, sep='\t')
+    pairs = pd.read_csv(pairsfile, sep='\t')
+
+    if pairs.shape[0] == 0:
+        logger.info("No pairs found in the input file...")
+
+        if output_file:
+            logger.info("Saving results to file %s" % output_file)
+            pairs.to_csv(output_file, sep='\t', index=False)
+
+        return pairs
 
     logger.info("Writing flank pairs to fasta file...")
-    tmp_flanks_fasta = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.fasta'
-    fastatools.write_flanks_to_fasta(flanks, tmp_flanks_fasta)
+    tmp_pairs_fasta = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.fasta'
+    fastatools.write_flanks_to_fasta(pairs, tmp_pairs_fasta)
 
-    logger.info("Running FragGeneScan on flanks on %s..." % tmp_flanks_fasta)
-    tmp_flanks_translate = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.translate'
-    fraggenescantools.run_fraggenescan(tmp_flanks_fasta, tmp_flanks_translate)
+    logger.info("Running FragGeneScan on pairs on %s..." % tmp_pairs_fasta)
+    tmp_pairs_translate = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.translate'
+    fraggenescantools.run_fraggenescan(tmp_pairs_fasta, tmp_pairs_translate)
 
     has_fraggene_output = True
-    if fraggenescantools.count_fraggenescan_seqs(tmp_flanks_translate+'.faa') == 0:
+    if fraggenescantools.count_fraggenescan_seqs(tmp_pairs_translate+'.faa') == 0:
         has_fraggene_output = False
 
-    logger.info("Running hmmsearch on %s..." % tmp_flanks_translate)
-    tmp_flanks_translate = tmp_flanks_translate + ".faa"
+    logger.info("Running hmmsearch on %s..." % tmp_pairs_translate)
+    tmp_pairs_translate = tmp_pairs_translate + ".faa"
     tmp_hmm_results = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.hmmresults'
 
     if has_fraggene_output:
-        hmmtools.run_hmmsearch(tmp_flanks_translate, tmp_hmm_results, hmmdb)
+        hmmtools.run_hmmsearch(tmp_pairs_translate, tmp_hmm_results, hmmdb)
 
     hmm_results = hmmtools.process_hmm_results(tmp_hmm_results)
 
-    final_results = flanks.join(hmm_results, how='left')
+    final_results = pairs.join(hmm_results, how='left')
 
     # nohmmsearch = final_results.query("evalue_5p != evalue_5p & evalue_3p != evalue_3p")
 
@@ -54,7 +63,7 @@ def _hmmsearchpairs(pairsfile, output_file=None, hmmdb=None):
         logger.info("Saving results to file %s" % output_file)
         final_results.to_csv(output_file, sep='\t', index=False)
 
-    shell('rm -f %s %s %s' % (tmp_flanks_fasta, tmp_flanks_translate, tmp_hmm_results))
+    shell('rm -f %s %s %s' % (tmp_pairs_fasta, tmp_pairs_translate, tmp_hmm_results))
 
     return final_results
 

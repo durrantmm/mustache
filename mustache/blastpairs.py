@@ -17,29 +17,39 @@ def _blastpairs(pairsfile, blastdb=None, output_file=None):
     if not blastdb:
         blastdb = BLASTDB
 
-    flanks = pd.read_csv(pairsfile, sep='\t')
+    pairs = pd.read_csv(pairsfile, sep='\t')
 
-    logger.info("Writing flank pairs to fasta file...")
-    tmp_flanks_fasta = '/tmp/mustache.blastpairs.' + str(randint(0, 1e100)) + '.fasta'
-    fastatools.write_flanks_to_fasta(flanks, tmp_flanks_fasta)
+    if pairs.shape[0] == 0:
+        logger.info("No pairs found in the input file...")
 
-    logger.info("Blasting flank pairs against database found at %s" % blastdb)
-    tmp_flanks_blast = '/tmp/mustache.blastpairs.' + str(randint(0, 1e100)) + '.blast.txt'
-    blasttools.blast_fasta(tmp_flanks_fasta, blastdb, tmp_flanks_blast)
+        if output_file:
+            logger.info("Saving results to file %s" % output_file)
+            pairs.to_csv(output_file, sep='\t', index=False)
 
-    logger.info("Processing blast results %s" % blastdb)
-    blast_results = blasttools.process_blast_results(tmp_flanks_blast)
+        return pairs
 
-    final_results = flanks.join(blast_results, how='left')
+    else:
+        logger.info("Writing flank pairs to fasta file...")
+        tmp_pairs_fasta = '/tmp/mustache.blastpairs.' + str(randint(0, 1e100)) + '.fasta'
+        fastatools.write_flanks_to_fasta(pairs, tmp_pairs_fasta)
 
-    noblast = final_results.query("blast_evalue_5p != blast_evalue_5p & blast_evalue_3p != blast_evalue_3p")
+        logger.info("Blasting flank pairs against database found at %s" % blastdb)
+        tmp_pairs_blast = '/tmp/mustache.blastpairs.' + str(randint(0, 1e100)) + '.blast.txt'
+        blasttools.blast_fasta(tmp_pairs_fasta, blastdb, tmp_pairs_blast)
 
-    logger.info("%d sequence pairs blasted to an IS...", final_results.shape[0] - noblast.shape[0])
-    if output_file:
-        logger.info("Saving results to file %s" % output_file)
-        final_results.to_csv(output_file, sep='\t', index=False)
+        logger.info("Processing blast results %s" % blastdb)
+        blast_results = blasttools.process_blast_results(tmp_pairs_blast)
 
-    shell('rm -f %s %s' % (tmp_flanks_fasta, tmp_flanks_blast))
+        final_results = pairs.join(blast_results, how='left')
+
+        noblast = final_results.query("blast_evalue_5p != blast_evalue_5p & blast_evalue_3p != blast_evalue_3p")
+
+        logger.info("%d sequence pairs blasted to an IS...", final_results.shape[0] - noblast.shape[0])
+        if output_file:
+            logger.info("Saving results to file %s" % output_file)
+            final_results.to_csv(output_file, sep='\t', index=False)
+
+        shell('rm -f %s %s' % (tmp_pairs_fasta, tmp_pairs_blast))
 
     return final_results
 

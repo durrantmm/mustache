@@ -49,21 +49,26 @@ def _extendflanks(flanksfile, bamfile, output_file):
 
 
     flanks = pd.read_csv(flanksfile, sep='\t')
-    bam = pysam.AlignmentFile(bamfile, 'rb')
 
-    sequences = list(flanks['consensus_seq'])
-    did_extend = [False]*len(sequences)
+    if flanks.shape[0] == 0:
+        logger.info("No flanks found in the input file...")
 
-    logger.info("Running extendflanks algorithm on %d total flanks..." % flanks.shape[0])
-    extensions = flanks.apply(lambda row, bam=bam: extend(bam, row['contig'], row['pos'], row['orient'], row['consensus_seq']), axis=1)
+    else:
+        bam = pysam.AlignmentFile(bamfile, 'rb')
 
-    flanks['extended'] = pd.DataFrame(flanks['consensus_seq'] != extensions)
-    flanks['consensus_seq'] = extensions
-    flanks['consensus_seq_length'] = pd.DataFrame(list(map(len, list(flanks['consensus_seq']))))
+        sequences = list(flanks['consensus_seq'])
+        did_extend = [False]*len(sequences)
 
-    cols = flanks.columns.tolist()
-    cols = cols[:-2] + [cols[-1]] + [cols[-2]]
-    flanks = flanks[cols]
+        logger.info("Running extendflanks algorithm on %d total flanks..." % flanks.shape[0])
+        extensions = flanks.apply(lambda row, bam=bam: extend(bam, row['contig'], row['pos'], row['orient'], row['consensus_seq']), axis=1)
+
+        flanks['extended'] = pd.DataFrame(flanks['consensus_seq'] != extensions)
+        flanks['consensus_seq'] = extensions
+        flanks['consensus_seq_length'] = pd.DataFrame(list(map(len, list(flanks['consensus_seq']))))
+
+        cols = flanks.columns.tolist()
+        cols = cols[:-2] + [cols[-1]] + [cols[-2]]
+        flanks = flanks[cols]
 
     logger.info("Extended %d flanks using local assembly..." % sum(did_extend))
     if output_file:

@@ -114,14 +114,22 @@ def _pairflanks(flanksfile, output_file):
 
     flanks = pd.read_csv(flanksfile, sep='\t')
 
-    flank_pairs = get_flank_pairs(flanks)
+    if flanks.shape[0] == 0:
+        logger.info("No flanks found in the input file...")
+        if output_file:
+            flanks.to_csv(output_file, sep='\t', index=False)
+        return flanks
 
-    logger.info("Identified %d flank pairs with inverted repeats..." % flank_pairs.shape[0])
-    if output_file:
-        logger.info("Saving results to file %s" % output_file)
-        flank_pairs.to_csv(output_file, sep='\t', index=False)
+    else:
 
-    return flank_pairs
+        flank_pairs = get_flank_pairs(flanks)
+
+        logger.info("Identified %d flank pairs with inverted repeats..." % flank_pairs.shape[0])
+        if output_file:
+            logger.info("Saving results to file %s" % output_file)
+            flank_pairs.to_csv(output_file, sep='\t', index=False)
+
+        return flank_pairs
 
 @click.command()
 @click.argument('flanksfile', type=click.Path(exists=True))
