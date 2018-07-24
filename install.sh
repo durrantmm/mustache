@@ -18,13 +18,13 @@ echo "HMMDB = '${CURRENT_DIR}/data/clusters.faa.hmm'" >> mustache/config.py
 echo "FRAGGENESCAN = '${CURRENT_DIR}/bin/FragGeneScan1.30/run_FragGeneScan.pl'" >> mustache/config.py
 
 echo "Unzipping mergem database":
-tar -zxvf data/mergem_blast_db.tar.gz
+tar -zxvf data/mergem_blast_db.tar.gz --directory data
 
 echo "Unzipping the transposase cluster HMM file"
-gunzip --keep data/clusters.faa.hmm.gz
+gunzip --stdout data/clusters.faa.hmm.gz > data/clusters.faa.hmm
 
 echo "Unzipping and installing the FragGeneScan package..."
-tar -zxvf bin/FragGeneScan1.30.tar.gz
+tar -zxvf bin/FragGeneScan1.30.tar.gz --directory bin
 cd bin/FragGeneScan1.30
 make
 cd ../../
