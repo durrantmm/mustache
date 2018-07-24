@@ -6,6 +6,7 @@ from mustache.blastpairs import blastpairs, _blastpairs
 from mustache.blastpanisa import blastpanisa
 from mustache.extendflanks import extendflanks, _extendflanks
 from mustache.hmmsearchpairs import hmmsearchpairs, _hmmsearchpairs
+from mustache.mergepairs import mergepairs
 import pygogo as gogo
 from os.path import isfile
 
@@ -62,8 +63,8 @@ def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
         logger.info("OUTPUT FILE %s ALREADY EXISTS..." % hmmsearchpairs_output_file)
     logger.info('')
 
-    logger.info("MUSTACHE PAIRED-END PIPELINE COMPLETED SUCCESSFULLY.")
-    logger.info("MUSTACHE PAIRED-END PIPELINE COMPLETED SUCCESSFULLY.")
+    logger.info("MUSTACHE SINGLE-END PIPELINE COMPLETED SUCCESSFULLY.")
+
 
 @click.command()
 @click.argument('bamfile', type=click.Path(exists=True))
@@ -75,7 +76,6 @@ def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
 @click.option('--checkexist/--no-checkexist', default=True)
 def paired_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softclip_count, min_alignment_quality, blastdb,
                         checkexist):
-
 
     logger.info("BEGINNING FINDFLANKS...")
     findflanks_output_file = output_prefix + '.findflanks.tsv'
@@ -134,6 +134,7 @@ cli.add_command(blastpairs)
 cli.add_command(hmmsearchpairs)
 cli.add_command(blastpanisa)
 cli.add_command(single_end_pipeline)
+cli.add_command(mergepairs)
 cli.add_command(paired_end_pipeline)
 
 

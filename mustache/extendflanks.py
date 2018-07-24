@@ -13,21 +13,24 @@ verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
 def extend(bam, contig, pos, orient, seq):
-
-
+    print(contig, pos, orient)
     reads = get_reads_to_assemble(bam, contig, pos, orient)
     if len(reads) == 0:
-        return None
+        return seq
 
     assembler = minimustools.MinimusAssembler(reads)
     assembler.assemble()
 
     if assembler.count_assembled_seqs() == 0:
-        return None
+        return seq
 
     assembler.align_seq_to_assembly(seq)
     extended_seq = assembler.retrieve_extended_sequence(orient)
     assembler.delete_files()
+
+    if extended_seq is None:
+        return seq
+
     return extended_seq
 
 def get_reads_to_assemble(bam, contig, pos, orient):
@@ -52,25 +55,11 @@ def _extendflanks(flanksfile, bamfile, output_file):
     did_extend = [False]*len(sequences)
 
     logger.info("Running extendflanks algorithm on %d total flanks..." % flanks.shape[0])
+    extensions = flanks.apply(lambda row, bam=bam: extend(bam, row['contig'], row['pos'], row['orient'], row['consensus_seq']), axis=1)
 
-    count = 0
-    for index, row in flanks.iterrows():
-
-        count += 1
-        if count % 100 == 0:
-            logger.info("\tProcessed %d flanks so far, and extended %d total flanks..." % (count, sum(did_extend)))
-
-        contig, pos, orient, seq = row[['contig', 'pos', 'orient', 'consensus_seq']]
-
-        print(contig, pos, orient)
-
-        extension = extend(bam, contig, pos, orient, seq)
-        if extension:
-            sequences[index] = str(extension)
-            did_extend[index] = True
-
-    flanks['consensus_seq'] = pd.DataFrame(sequences)
-    flanks['extended'] = pd.DataFrame(did_extend)
+    flanks['extended'] = pd.DataFrame(flanks['consensus_seq'] != extensions)
+    flanks['consensus_seq'] = extensions
+    flanks['consensus_seq_length'] = pd.DataFrame(list(map(len, list(flanks['consensus_seq']))))
 
     cols = flanks.columns.tolist()
     cols = cols[:-2] + [cols[-1]] + [cols[-2]]
