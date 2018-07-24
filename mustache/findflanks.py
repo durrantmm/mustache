@@ -12,6 +12,9 @@ import itertools
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
+import warnings
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 def get_softclipped_sites(bam_file, min_softclip_length=4, min_softclip_count=10, min_alignment_quality=20):
 

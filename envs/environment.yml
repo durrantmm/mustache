@@ -70,3 +70,4 @@ dependencies:
   - wheel=0.31.0=py35_0
   - xz=5.2.3=h55aa19d_2
   - zlib=1.2.11=ha838bed_2
+  - hmmer=3.1b2=0
