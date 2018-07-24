@@ -10,9 +10,9 @@ Then enter the newly downlaoded mustache directory
 
     cd mustache
     
-And create the new conda environment with
+Install the mustache conda environment and other dependencies with
 
-    conda env create -f envs/environment.yml
+    bash install.sh
 
 Now activate the environment with
     
