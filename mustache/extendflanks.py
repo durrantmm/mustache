@@ -70,7 +70,8 @@ def _extendflanks(flanksfile, bamfile, output_file):
         cols = cols[:-2] + [cols[-1]] + [cols[-2]]
         flanks = flanks[cols]
 
-    logger.info("Extended %d flanks using local assembly..." % sum(did_extend))
+        logger.info("Extended %d flanks using local assembly..." % sum(did_extend))
+
     if output_file:
         logger.info("Saving results to file %s" % output_file)
         flanks.to_csv(output_file, sep='\t', index=False)
