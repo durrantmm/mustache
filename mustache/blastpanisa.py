@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 import click
 import pygogo as gogo
@@ -6,7 +8,8 @@ import numpy as np
 from snakemake import shell
 from mustache import fastatools, embosstools, blasttools
 from random import randint
-from mustache.config import BLASTDB
+from mustache.config import BLASTDB, TMPDIR
+from os.path import join
 
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
@@ -20,11 +23,11 @@ def _blastpanisa(panisafile, blastdb=None, output_file=None):
     panisa = pd.read_csv(panisafile, sep='\t')
 
     logger.info("Writing flank pairs to fasta file...")
-    tmp_flanks_fasta = '/tmp/mustache.blastpanisa.' + str(randint(0, 1e100)) + '.fasta'
+    tmp_flanks_fasta = join(TMPDIR, 'mustache.blastpanisa.' + str(randint(0, 1e20)) + '.fasta')
     fastatools.write_panisa_flanks_to_fasta(panisa, tmp_flanks_fasta)
 
     logger.info("Blasting panISa flank pairs against database found at %s" % blastdb)
-    tmp_flanks_blast = '/tmp/mustache.blastpanisa.' + str(randint(0, 1e100)) + '.blast.txt'
+    tmp_flanks_blast = join(TMPDIR, 'mustache.blastpanisa.' + str(randint(0, 1e20)) + '.blast.txt')
     blasttools.blast_fasta(tmp_flanks_fasta, blastdb, tmp_flanks_blast)
 
     logger.info("Processing blast results %s" % blastdb)

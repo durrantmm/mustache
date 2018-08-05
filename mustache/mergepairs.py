@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 import click
 import pygogo as gogo
@@ -6,10 +8,6 @@ import numpy as np
 import itertools
 from jellyfish import levenshtein_distance
 from scipy.sparse.csgraph import connected_components
-from snakemake import shell
-from mustache import fastatools, embosstools, blasttools
-from random import randint
-from mustache.config import BLASTDB
 
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger

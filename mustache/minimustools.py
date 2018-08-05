@@ -1,15 +1,15 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 from snakemake import shell
 import os
 from os.path import join
-import subprocess
 from Bio import SeqIO
 import pysam
-import time, timeit
-from random import randint
 from mustache.bwatools import index_genome, align_to_genome_se
 from mustache.sctools import left_softclipped_sequence_strict, right_softclipped_sequence_strict
 from mustache.misc import revcomp
+from mustache.config import TMPDIR
 
 class MinimusAssembler:
 
@@ -24,17 +24,19 @@ class MinimusAssembler:
 
     bam_path = None
 
-    def __init__(self, reads, outdir='/tmp', outprefix='mustache.minimus.'+str(randint(0,1e100)), read_names=None):
+    def __init__(self, reads, outdir=None, outprefix='mustache.minimus', read_names=None):
+        if outdir is None:
+            outdir = TMPDIR
 
         self.reads = reads
         self.read_names = read_names
 
         self.full_outprefix = join(outdir, outprefix)
-        self.reads_path = join(outdir, outprefix + '.reads.fasta')
-        self.align_seq_fasta_path = join(outdir, outprefix + '.align_seq.fasta')
-        self.align_sam_path = join(outdir, outprefix + '.align_seq.sam')
-        self.afg_path = join(outdir, outprefix + '.afg')
-        self.bam_path = join(outdir, outprefix + '.bam')
+        self.reads_path = self.full_outprefix + '.reads.fasta'
+        self.align_seq_fasta_path = self.full_outprefix + '.align_seq.fasta'
+        self.align_sam_path = self.full_outprefix + '.align_seq.sam'
+        self.afg_path = self.full_outprefix + '.afg'
+        self.bam_path = self.full_outprefix + '.bam'
 
         os.makedirs(outdir, exist_ok=True)
 
@@ -51,25 +53,27 @@ class MinimusAssembler:
     def assemble(self, min_overlap_length=10, min_overlap_count=2, stranded=False):
         self.write_reads_as_fasta()
         self.delete_afg_bank()
-        shell("toAmos -s {reads_path} -o {afg_path} 2> /dev/null;".format(reads_path=self.reads_path,
+
+        shell("set +o pipefail; toAmos -s \"{reads_path}\" -o \"{afg_path}\" &> /dev/null;".format(reads_path=self.reads_path,
                                                                           afg_path=self.afg_path), read=True)
-        shell("bank-transact -f -z -b {out_prefix}.bnk -m {out_prefix}.afg 2> /dev/null;".format(
+        shell("bank-transact -f -z -b \"{out_prefix}.bnk\" -m \"{out_prefix}.afg\" &> /dev/null;".format(
             out_prefix=self.full_outprefix), read=True)
         if stranded:
             shell(
-                "hash-overlap -s -o {min_olen} -B {out_prefix}.bnk 2> /dev/null;".format(out_prefix=self.full_outprefix,
+                "hash-overlap -s -o {min_olen} -B \"{out_prefix}.bnk\" &> /dev/null;".format(out_prefix=self.full_outprefix,
                                                                                          min_olen=min_overlap_length),
                 read=True)
         else:
-            shell("hash-overlap -o {min_olen} -B {out_prefix}.bnk 2> /dev/null;".format(out_prefix=self.full_outprefix,
-                                                                                        min_olen=min_overlap_length),
-                  read=True)
-        shell("tigger -b {out_prefix}.bnk 2> /dev/null;".format(out_prefix=self.full_outprefix), read=True)
-        shell(
-            "make-consensus -o {min_ocount} -B -b {out_prefix}.bnk 2> /dev/null;".format(out_prefix=self.full_outprefix,
-                                                                                         min_ocount=min_overlap_count),
-            read=True)
-        shell("bank2fasta -d -b {out_prefix}.bnk > {out_prefix}.fasta 2> /dev/null;".format(
+            shell("hash-overlap -o {min_olen} -B \"{out_prefix}.bnk\" &> /dev/null;".format(
+                out_prefix=self.full_outprefix, min_olen=min_overlap_length), read=True)
+
+
+        shell("tigger -b \"{out_prefix}.bnk\" &> /dev/null;".format(out_prefix=self.full_outprefix), read=True)
+
+        shell("make-consensus -o {min_ocount} -B -b \"{out_prefix}.bnk\" &> /dev/null".format(
+            out_prefix=self.full_outprefix, min_ocount=min_overlap_count), read=True)
+
+        shell("bank2fasta -d -b \"{out_prefix}.bnk\" > \"{out_prefix}.fasta\" 2> /dev/null;".format(
             out_prefix=self.full_outprefix), read=True)
 
         self.out_fasta = join(self.full_outprefix + '.fasta')
@@ -105,6 +109,7 @@ class MinimusAssembler:
             n_assembled_seqs += 1
         return n_assembled_seqs
 
+
     def write_seq_to_fasta(self, seq):
         with open(self.align_seq_fasta_path, 'w') as out:
            out.write('>align_seq\n' + seq)
@@ -113,6 +118,7 @@ class MinimusAssembler:
         self.write_seq_to_fasta(seq)
         index_genome(self.out_fasta)
         align_to_genome_se(self.align_seq_fasta_path, self.out_fasta, self.align_sam_path)
+        shell('rm -f %s.*' % self.out_fasta)
 
     def retrieve_extended_sequence(self, orient):
         outsam = pysam.AlignmentFile(self.align_sam_path, 'r')

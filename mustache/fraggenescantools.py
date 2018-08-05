@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 from snakemake import shell
 from Bio import SeqIO
@@ -6,7 +8,7 @@ from mustache.config import FRAGGENESCAN
 #conda install -c bioconda fraggenescan 
 
 def run_fraggenescan(fasta, outfile, threads=2):
-    fraggenescan_command = '{fraggenescan} -genome={fasta} -out={outfile} -complete=0 -train=complete -thread={threads}'.format(
+    fraggenescan_command = '{fraggenescan} -genome={fasta} -out={outfile} -complete=0 -train=complete -thread={threads} 1> /dev/null'.format(
         fraggenescan=FRAGGENESCAN, fasta=fasta, outfile=outfile, threads=threads
     )
     shell(fraggenescan_command)

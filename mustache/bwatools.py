@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 from glob import glob
 from snakemake import shell
@@ -9,7 +11,7 @@ logger = gogo.Gogo(__name__, verbose=verbose).logger
 
 def index_genome(genome_path, silence=True):
     if silence:
-        shell('bwa index {genome_path} 2> /dev/null;'.format(genome_path=genome_path))
+        shell('bwa index {genome_path} &> /dev/null;'.format(genome_path=genome_path))
     else:
         shell('bwa index {genome_path}'.format(genome_path=genome_path))
 

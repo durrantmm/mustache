@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 # Adapted from code by Shubhadeep Roychowdhury available at https://towardsdatascience.com/implementing-a-trie-data-structure-in-python-in-less-than-100-lines-of-code-a877ea23c1a1
 from typing import Tuple
 import sys

@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 from mustache.sctools import *
 
 def get_softclipped_seqs_qualities(bam_file, contig, pos, orient, min_alignment_quality):
@@ -125,3 +127,13 @@ def get_left_unmapped_reads(bam_file, contig, left_site, search_region_length=50
 
 def contig_length(bam, contig):
     return dict(zip(bam.references, bam.lengths))[contig]
+
+def count_runthrough_reads(bam, contig, site):
+
+    if site  < 0 or site >= contig_length(bam, contig):
+        return 0
+    else:
+        count = 0
+        for read in bam.fetch(contig, site, site+1):
+            count += 1
+        return count

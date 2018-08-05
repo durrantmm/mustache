@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 import click
 from mustache import misc, sctools, flanktrie, pysamtools
@@ -9,6 +11,7 @@ from jellyfish import levenshtein_distance
 import numpy as np
 from scipy.sparse.csgraph import connected_components
 import itertools
+from os.path import basename
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
@@ -79,7 +82,7 @@ def get_softclipped_sites(bam_file, min_softclip_length=4, min_softclip_count=10
 
 def determine_flank_sequence(softclipped_sites, bam_file, min_softclip_length=4, min_softclip_count=10, min_alignment_quality=20):
 
-    column_names = ["contig", "pos", "orient", "count", "consensus_seq_length", "consensus_seq"]
+    column_names = ["contig", "pos", "orient", "softclip_count", "consensus_seq_length", "consensus_seq"]
 
     final_flank_seqs = dict()
     site_count = 0
@@ -111,7 +114,7 @@ def determine_flank_sequence(softclipped_sites, bam_file, min_softclip_length=4,
             final_flank_seqs[len(final_flank_seqs)+1] = [contig, pos, orient, count, len(seq), seq]
 
     final_flank_seqs = pd.DataFrame.from_dict(final_flank_seqs, orient='index', columns=column_names).sort_index()
-    final_flank_seqs.query('consensus_seq_length >= @min_softclip_length & count >= @min_softclip_count', inplace=True)
+    final_flank_seqs.query('consensus_seq_length >= @min_softclip_length & softclip_count >= @min_softclip_count', inplace=True)
 
     logger.info("After filtering by minimum softclip length of %d, "
                 "and a minimum softclip count of %d, %d sites remaining..." % (
@@ -227,6 +230,17 @@ def get_cluster_consensus_seqs(seq_clusters):
 
     return consensus_seqs
 
+def count_runthrough_reads(flanks, bam):
+    unique_sites = flanks[['contig', 'pos']].drop_duplicates()
+
+    runthrough_counts = []
+    for index, row in unique_sites.iterrows():
+        runthrough_counts.append(pysamtools.count_runthrough_reads(bam, row['contig'], row['pos']))
+
+    unique_sites.loc[:,'runthrough_count'] = runthrough_counts
+    outflanks = flanks.merge(unique_sites, how='left')
+    return outflanks
+
 def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, output_file):
     bam = pysam.AlignmentFile(bamfile, 'rb')
 
@@ -235,7 +249,10 @@ def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_
     logger.info("Determining consensus flank sequences from softclipped reads...")
     flank_sequences = determine_flank_sequence(softclipped_sites, bam, min_softclip_length, min_softclip_count,
                                                min_alignment_quality)
-
+    logger.info("Counting runthrough reads at all identified sites...")
+    flank_sequences = count_runthrough_reads(flank_sequences, bam)
+    flank_sequences = flank_sequences.loc[:,['contig', 'pos', 'orient', 'softclip_count', 'runthrough_count',
+                                            'consensus_seq']]
     if output_file:
         logger.info("Saving results to file %s" % output_file)
         flank_sequences.to_csv(output_file, sep='\t', index=False)
@@ -244,11 +261,13 @@ def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_
 
 @click.command()
 @click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--output_file', '-o', default='mustache.findflanks.tsv', help="The output file to save the results.")
+@click.option('--output_file', '-o', default=None, help="The output file to save the results.")
 @click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
 @click.option('--min_softclip_count', '-mincount', default=10, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
 @click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
 def findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, output_file=None):
+    if not output_file:
+        output_file = '.'.join(['mustache', basename(bamfile).split('.')[0], 'findflanks.tsv'])
     _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, output_file)
 
 

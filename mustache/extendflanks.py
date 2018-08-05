@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 import click
 import pysam
@@ -8,20 +10,22 @@ from snakemake import shell
 from random import randint
 from mustache import fastatools, embosstools, sctools, pysamtools, minimustools
 from mustache.misc import revcomp
+from os.path import basename
 
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
-def extend(bam, contig, pos, orient, seq):
+def extend(bam, contig, pos, orient, seq, tmp_output_prefix=None):
     print(contig, pos, orient)
     reads = get_reads_to_assemble(bam, contig, pos, orient)
     if len(reads) == 0:
         return seq
 
-    assembler = minimustools.MinimusAssembler(reads)
+    assembler = minimustools.MinimusAssembler(reads, outprefix=tmp_output_prefix+'.minimus.'+str(randint(0,1e20)))
     assembler.assemble()
 
     if assembler.count_assembled_seqs() == 0:
+        assembler.delete_files()
         return seq
 
     assembler.align_seq_to_assembly(seq)
@@ -46,7 +50,7 @@ def get_reads_to_assemble(bam, contig, pos, orient):
 
 
 def _extendflanks(flanksfile, bamfile, output_file):
-
+    tmp_output_prefix = '.'.join(basename(output_file).split('.')[:-1])
 
     flanks = pd.read_csv(flanksfile, sep='\t')
 
@@ -60,7 +64,10 @@ def _extendflanks(flanksfile, bamfile, output_file):
         did_extend = [False]*len(sequences)
 
         logger.info("Running extendflanks algorithm on %d total flanks..." % flanks.shape[0])
-        extensions = flanks.apply(lambda row, bam=bam: extend(bam, row['contig'], row['pos'], row['orient'], row['consensus_seq']), axis=1)
+        extensions = flanks.apply(
+            lambda row, bam=bam:
+            extend(bam, row['contig'], row['pos'], row['orient'], row['consensus_seq'], tmp_output_prefix), axis=1
+        )
 
         flanks['extended'] = pd.DataFrame(flanks['consensus_seq'] != extensions)
         flanks['consensus_seq'] = extensions
@@ -82,8 +89,10 @@ def _extendflanks(flanksfile, bamfile, output_file):
 @click.command()
 @click.argument('flanksfile', type=click.Path(exists=True))
 @click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--output_file', '-o', default='mustache.extendflanks.tsv', help="The output file to save the results.")
+@click.option('--output_file', '-o', default=None, help="The output file to save the results.")
 def extendflanks(flanksfile, bamfile, output_file=None):
+    if not output_file:
+        output_file='.'.join(['mustache', basename(flanksfile).split('.')[0], 'extendflanks.tsv'])
     _extendflanks(flanksfile, bamfile, output_file)
 
 

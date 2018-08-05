@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 from snakemake import shell
 import pandas as pd
@@ -5,13 +7,15 @@ from random import randint
 from Bio.Seq import Seq
 from Bio.Alphabet import IUPAC
 from os.path import isfile
+from mustache.config import TMPDIR
+from os.path import join
 
 
 # conda install -c biocore hmmer
 
 def run_hmmsearch(fasta, outfile, database, threads=2):
-    logfile = '/tmp/mustache.findtransposase.' + str(randint(0, 1e100)) + '.log'
-    hmmsearch_command = 'hmmsearch --tblout={outfile} --max --noali --cpu={threads} {database} {fasta} > {logfile}'.format(
+    logfile = join(TMPDIR, 'mustache.findtransposase.' + str(randint(0, 1e20)) + '.log')
+    hmmsearch_command = 'hmmsearch --tblout={outfile} --max --noali --cpu={threads} {database} {fasta} 1> {logfile}'.format(
         fasta=fasta, outfile=outfile, threads=threads, database=database, logfile=logfile
     )
     shell(hmmsearch_command)

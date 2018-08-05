@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 import click
 import pygogo as gogo
@@ -6,8 +8,8 @@ import numpy as np
 from snakemake import shell
 from mustache import fastatools, embosstools, fraggenescantools, hmmtools
 from random import randint
-from mustache.config import HMMDB
-from os.path import isfile
+from mustache.config import HMMDB, TMPDIR
+from os.path import isfile, basename, join
 
 verbose = True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
@@ -33,20 +35,20 @@ def _hmmsearchpairs(pairsfile, output_file=None, hmmdb=None):
         return pairs
 
     logger.info("Writing flank pairs to fasta file...")
-    tmp_pairs_fasta = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.fasta'
+    tmp_pairs_fasta = join(TMPDIR, 'mustache.hmmsearchpairs.' + str(randint(0, 1e20)) + '.fasta')
     fastatools.write_flanks_to_fasta(pairs, tmp_pairs_fasta)
 
-    logger.info("Running FragGeneScan on pairs on %s..." % tmp_pairs_fasta)
-    tmp_pairs_translate = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.translate'
+    logger.info("Running FragGeneScan on pairs...")
+    tmp_pairs_translate = join(TMPDIR, 'mustache.hmmsearchpairs.' + str(randint(0, 1e20)) + '.translate')
     fraggenescantools.run_fraggenescan(tmp_pairs_fasta, tmp_pairs_translate)
 
     has_fraggene_output = True
     if fraggenescantools.count_fraggenescan_seqs(tmp_pairs_translate+'.faa') == 0:
         has_fraggene_output = False
 
-    logger.info("Running hmmsearch on %s..." % tmp_pairs_translate)
+    logger.info("Running hmmsearch on pairs...")
     tmp_pairs_translate = tmp_pairs_translate + ".faa"
-    tmp_hmm_results = '/tmp/mustache.hmmsearchpairs.' + str(randint(0, 1e100)) + '.hmmresults'
+    tmp_hmm_results = join(TMPDIR, 'mustache.hmmsearchpairs.' + str(randint(0, 1e20)) + '.hmmresults')
 
     if has_fraggene_output:
         hmmtools.run_hmmsearch(tmp_pairs_translate, tmp_hmm_results, hmmdb)
@@ -70,8 +72,10 @@ def _hmmsearchpairs(pairsfile, output_file=None, hmmdb=None):
 
 @click.command()
 @click.argument('pairsfile', type=click.Path(exists=True))
-@click.option('--output_file', '-o', default='mustache.hmmsearchpairs.tsv', help="The output file to save the results.")
+@click.option('--output_file', '-o', default=None, help="The output file to save the results.")
 def hmmsearchpairs(pairsfile, output_file=None):
+    if not output_file:
+        output_file = '.'.join(['mustache', basename(pairsfile).split('.')[0], 'hmmsearchpairs.tsv'])
     _hmmsearchpairs(pairsfile, output_file)
 
 

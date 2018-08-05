@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import click
 from mustache.alignbwa import alignbwa
 from mustache.findflanks import findflanks, _findflanks
@@ -9,6 +11,7 @@ from mustache.hmmsearchpairs import hmmsearchpairs, _hmmsearchpairs
 from mustache.mergepairs import mergepairs
 import pygogo as gogo
 from os.path import isfile
+from os.path import basename
 
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
@@ -19,14 +22,22 @@ def cli():
 
 @click.command()
 @click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--output_prefix', '-o', default='mustache', help="The prefix to be used for all output files.")
+@click.option('--output_prefix', '-o', default=None, help="The prefix to be used for all output files.")
 @click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
 @click.option('--min_softclip_count', '-mincount', default=10, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
 @click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
+@click.option('--minimum_partner_runthrough_count', '-minrtcount', default=5,
+              help="If two flanks are more than one base apart, then you would expect each softclipped site to"
+                   "also show signs of non-softclippd reads, signifying a direct repeat. This is the number of"
+                   "such runthrough reads required for a pair to be considered valid.")
 @click.option('--blastdb', '-blastdb')
 @click.option('--checkexist/--no-checkexist', default=True)
-def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softclip_count, min_alignment_quality, blastdb,
-                        checkexist):
+def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softclip_count, min_alignment_quality,
+                        minimum_partner_runthrough_count, blastdb, checkexist):
+
+    if not output_prefix:
+        output_prefix = '.'.join(['mustache', basename(bamfile).split('.')[0]])
+
     logger.info("BEGINNING FINDFLANKS...")
     findflanks_output_file = output_prefix + '.findflanks.tsv'
     if not (checkexist and isfile(findflanks_output_file)):
@@ -40,7 +51,7 @@ def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
     pairs_output_file = output_prefix + '.pairflanks.tsv'
     if not (checkexist and isfile(pairs_output_file)):
         checkexist = False
-        _pairflanks(findflanks_output_file, pairs_output_file)
+        _pairflanks(findflanks_output_file, minimum_partner_runthrough_count, pairs_output_file)
     else:
         logger.info("OUTPUT FILE %s ALREADY EXISTS..." % pairs_output_file)
     logger.info('')
@@ -68,14 +79,21 @@ def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
 
 @click.command()
 @click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--output_prefix', '-o', default='mustache', help="The prefix to be used for all output files.")
+@click.option('--output_prefix', '-o', default=None, help="The prefix to be used for all output files.")
 @click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
 @click.option('--min_softclip_count', '-mincount', default=10, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
 @click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
+@click.option('--minimum_partner_runthrough_count', '-minrtcount', default=5,
+              help="If two flanks are more than one base apart, then you would expect each softclipped site to"
+                   "also show signs of non-softclippd reads, signifying a direct repeat. This is the number of"
+                   "such runthrough reads required for a pair to be considered valid.")
 @click.option('--blastdb', '-blastdb')
 @click.option('--checkexist/--no-checkexist', default=True)
-def paired_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softclip_count, min_alignment_quality, blastdb,
-                        checkexist):
+def paired_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softclip_count, min_alignment_quality,
+                        minimum_partner_runthrough_count, blastdb, checkexist):
+
+    if not output_prefix:
+        output_prefix = '.'.join(['mustache', basename(bamfile).split('.')[0]])
 
     logger.info("BEGINNING FINDFLANKS...")
     findflanks_output_file = output_prefix + '.findflanks.tsv'
@@ -99,7 +117,7 @@ def paired_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
     pairs_output_file = output_prefix + '.pairflanks.tsv'
     if not (checkexist and isfile(pairs_output_file)):
         checkexist = False
-        _pairflanks(extendflanks_output_file, pairs_output_file)
+        _pairflanks(extendflanks_output_file, minimum_partner_runthrough_count, pairs_output_file)
     else:
         logger.info("OUTPUT FILE %s ALREADY EXISTS..." % pairs_output_file)
     logger.info('')
