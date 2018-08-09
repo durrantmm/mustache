@@ -47,7 +47,7 @@ def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
         softclip_count_5p, runthrough_count_5p, seq_5p = row['softclip_count'], row['runthrough_count'], row['consensus_seq']
 
         if 'extended' in list(row.keys()):
-            extended_5p, = row['extended']
+            extended_5p = row['extended']
 
         min_pos = pos_5p - max_direct_repeat_length
 

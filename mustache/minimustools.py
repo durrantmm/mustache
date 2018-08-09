@@ -3,7 +3,7 @@ warnings.filterwarnings("ignore")
 import sys
 from snakemake import shell
 import os
-from os.path import join
+from os.path import join, isfile
 from Bio import SeqIO
 import pysam
 from mustache.bwatools import index_genome, align_to_genome_se
@@ -71,37 +71,51 @@ class MinimusAssembler:
         self.delete_afg_bank()
 
         #print("toAmos")
+        bank_file = self.full_outprefix + '.bnk'
         if self.quals:
-            shell("toAmos -s \"{reads_path}\" -q {quals_path} -o \"{afg_path}\" &> /dev/null;".format(
-                reads_path=self.reads_path, quals_path=self.quals_path, afg_path=self.afg_path), read=True)
+            while not (isfile(self.reads_path) and isfile(self.quals_path)):
+                continue
+
+            shell("TMPDIR={tmpdir}; toAmos -s \"{reads_path}\" -q {quals_path} -o \"{afg_path}\" ".format( #&> /dev/null;
+                tmpdir=self.outdir, reads_path=self.reads_path, quals_path=self.quals_path, afg_path=self.afg_path), read=True)
         else:
+            while not (isfile(self.reads_path) and isfile(self.quals_path)):
+                continue
+
             shell("toAmos -s \"{reads_path}\" -o \"{afg_path}\" &> /dev/null;".format(
                 reads_path=self.reads_path, afg_path=self.afg_path), read=True)
         #print("bank-transact")
-        shell("bank-transact -f -z -b \"{out_prefix}.bnk\" -m \"{out_prefix}.afg\" &> /dev/null;".format(
-            out_prefix=self.full_outprefix), read=True)
+        while not isfile(self.afg_path):
+            continue
+
+        shell("bank-transact -f -z -b \"{bank_file}\" -m \"{afg_path}\" &> /dev/null;".format(
+            bank_file=bank_file, afg_path=self.afg_path), read=True)
         #print("hash-overlap")
+
         if stranded:
             shell(
-                "hash-overlap -s -o {min_olen} -B \"{out_prefix}.bnk\" &> /dev/null;".format(out_prefix=self.full_outprefix,
-                                                                                         min_olen=min_overlap_length),
+                "hash-overlap -s -o {min_olen} -B \"{bank_file}\" &> /dev/null;".format(bank_file=bank_file,
+                                                                                        min_olen=min_overlap_length),
                 read=True)
         else:
-            shell("hash-overlap -o {min_olen} -B \"{out_prefix}.bnk\" &> /dev/null;".format(
-                out_prefix=self.full_outprefix, min_olen=min_overlap_length), read=True)
+            shell("hash-overlap -o {min_olen} -B \"{bank_file}\" &> /dev/null;".format(
+                bank_file=bank_file, min_olen=min_overlap_length), read=True)
 
         #print("tigger")
-        shell("tigger -b \"{out_prefix}.bnk\" &> /dev/null;".format(out_prefix=self.full_outprefix), read=True)
+        shell("tigger -b \"{bank_file}\" &> /dev/null;".format(bank_file=bank_file), read=True)
 
         #print("make-consensus")
-        shell("make-consensus -o {min_ocount} -B -b \"{out_prefix}.bnk\" &> /dev/null".format(
-            out_prefix=self.full_outprefix, min_ocount=min_overlap_count), read=True)
+        shell("make-consensus -o {min_ocount} -B -b \"{bank_file}\" &> /dev/null".format(
+            bank_file=bank_file, min_ocount=min_overlap_count), read=True)
 
         #print("bank2fasta")
-        shell("bank2fasta -d -b \"{out_prefix}.bnk\" > \"{out_prefix}.fasta\" 2> /dev/null;".format(
-            out_prefix=self.full_outprefix), read=True)
-
         self.out_fasta = join(self.full_outprefix + '.fasta')
+        shell("bank2fasta -d -b \"{bank_file}\" > \"{out_fasta}\" 2> /dev/null;".format(
+            bank_file=bank_file, out_fasta=self.out_fasta), read=True)
+
+        while not isfile(self.out_fasta):
+            continue
+
         return self.out_fasta
 
 
