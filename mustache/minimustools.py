@@ -76,7 +76,7 @@ class MinimusAssembler:
             while not (isfile(self.reads_path) and isfile(self.quals_path)):
                 continue
 
-            shell("TMPDIR={tmpdir}; toAmos -s \"{reads_path}\" -q {quals_path} -o \"{afg_path}\" ".format( #&> /dev/null;
+            shell("TMPDIR={tmpdir}; toAmos -s \"{reads_path}\" -q {quals_path} -o \"{afg_path}\" &> /dev/null;".format(
                 tmpdir=self.outdir, reads_path=self.reads_path, quals_path=self.quals_path, afg_path=self.afg_path), read=True)
         else:
             while not (isfile(self.reads_path) and isfile(self.quals_path)):

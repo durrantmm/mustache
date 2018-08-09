@@ -8,15 +8,15 @@ import numpy as np
 from snakemake import shell
 from mustache import fastatools, blasttools
 from random import randint
-from mustache.config import BLASTDB, TMPDIR
-from os.path import basename, join
+from mustache.config import BLASTDB
+from os.path import basename, join, dirname
 
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
 
 def _blastpairs(pairsfile, blastdb=None, output_file=None):
-
+    tmpdir = dirname(output_file)
     if not blastdb:
         blastdb = BLASTDB
 
@@ -33,11 +33,11 @@ def _blastpairs(pairsfile, blastdb=None, output_file=None):
 
     else:
         logger.info("Writing flank pairs to fasta file...")
-        tmp_pairs_fasta = join(TMPDIR, 'mustache.blastpairs.' + str(randint(0, 1e20)) + '.fasta')
+        tmp_pairs_fasta = join(tmpdir, 'mustache.blastpairs.' + str(randint(0, 1e20)) + '.fasta')
         fastatools.write_flanks_to_fasta(pairs, tmp_pairs_fasta)
 
         logger.info("Blasting flank pairs against database found at %s" % blastdb)
-        tmp_pairs_blast = join(TMPDIR, 'mustache.blastpairs.' + str(randint(0, 1e20)) + '.blast.txt')
+        tmp_pairs_blast = join(tmpdir, 'mustache.blastpairs.' + str(randint(0, 1e20)) + '.blast.txt')
         blasttools.blast_fasta(tmp_pairs_fasta, blastdb, tmp_pairs_blast)
 
         logger.info("Processing blast results %s" % blastdb)
