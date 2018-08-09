@@ -14,16 +14,14 @@ from os.path import join
 # conda install -c biocore hmmer
 
 def run_hmmsearch(fasta, outfile, database, threads=2):
-    logfile = join(TMPDIR, 'mustache.findtransposase.' + str(randint(0, 1e20)) + '.log')
-    hmmsearch_command = 'hmmsearch --tblout={outfile} --max --noali --cpu={threads} {database} {fasta} 1> {logfile}'.format(
-        fasta=fasta, outfile=outfile, threads=threads, database=database, logfile=logfile
+    hmmsearch_command = 'hmmsearch --tblout={outfile} --max --noali --cpu={threads} {database} {fasta} 1> /dev/null'.format(
+        fasta=fasta, outfile=outfile, threads=threads, database=database
     )
     shell(hmmsearch_command)
-    shell('rm -f %s' % (logfile))
-
 
 # Figure out evalue_cutoff
 def process_hmm_results(hmm_results, evalue_cutoff=0.01):
+
     results = dict()
 
     if isfile(hmm_results):

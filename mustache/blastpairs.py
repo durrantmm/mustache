@@ -62,10 +62,8 @@ def _blastpairs(pairsfile, blastdb=None, output_file=None):
 @click.command()
 @click.argument('pairsfile', type=click.Path(exists=True))
 @click.option('--blastdb', '-db')
-@click.option('--output_file', '-o', default=None, help="The output file to save the results.")
+@click.option('--output_file', '-o', default='mustache.blastpairs.tsv', help="The output file to save the results.")
 def blastpairs(pairsfile, blastdb=None, output_file=None):
-    if not output_file:
-        output_file = '.'.join(['mustache', basename(pairsfile).split('.')[0], 'blastpairs.tsv'])
     _blastpairs(pairsfile, blastdb, output_file)
 
 

@@ -135,7 +135,7 @@ def _mergepairs(pairsfiles, output_file=None, similarity=0.9, comparison_sequenc
 @click.command()
 @click.argument('pairsfiles', nargs=-1, type=click.Path(exists=True))
 @click.option('--output_file', '-o', default='mustache.mergepairs.tsv', help="The output file to save the results.")
-@click.option('--similarity', '-s', default=0.9, help="The similarity cutoff used to merge sites.")
+@click.option('--similarity', '-s', default=0.8, help="The similarity cutoff used to merge sites.")
 @click.option('--comparison_sequence_length', '-s', default=50, help="The similarity cutoff used to merge sites.")
 def mergepairs(pairsfiles, output_file, similarity, comparison_sequence_length):
     if len(pairsfiles) == 0:

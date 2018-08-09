@@ -11,71 +11,99 @@ from random import randint
 from mustache import fastatools, embosstools, sctools, pysamtools, minimustools
 from mustache.misc import revcomp
 from os.path import basename
+from multiprocessing import Pool
+from mustache.config import TMPDIR
+from os.path import join, dirname
 
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
-def extend(bam, contig, pos, orient, seq, tmp_output_prefix=None):
-    print(contig, pos, orient)
-    reads = get_reads_to_assemble(bam, contig, pos, orient)
+def extend(row):
+    bam = pysam.AlignmentFile(row['bam_path'], 'rb')
+    contig, pos, orient, seq = row['contig'], row['pos'], row['orient'], row['consensus_seq']
+    tmp_outdir = row['outdir']
+
+    logger.info("Attempting to extend sequence at %s..." % ' '.join(map(str, [contig, pos, orient])))
+    reads, quals = get_reads_to_assemble(bam, contig, pos, orient, get_quals=True)
     if len(reads) == 0:
         return seq
 
-    assembler = minimustools.MinimusAssembler(reads, outprefix=tmp_output_prefix+'.minimus.'+str(randint(0,1e20)))
+    #print("RUNNING ASSEMBLY")
+    assembler = minimustools.MinimusAssembler(reads, quals, outdir=tmp_outdir)
     assembler.assemble()
 
-    if assembler.count_assembled_seqs() == 0:
+    #print("CHECKING IF SOMETHING ASSEMBLED")
+    if not assembler.something_assembled():
         assembler.delete_files()
         return seq
 
+    #print("ALIGNING TO ASSEMBLY")
     assembler.align_seq_to_assembly(seq)
+    #print("RETRIEVING EXTENDED SEQUENCE")
     extended_seq = assembler.retrieve_extended_sequence(orient)
     assembler.delete_files()
 
     if extended_seq is None:
         return seq
 
+    logger.info("Sequence extended successfully by %d base pairs" % (len(extended_seq) - len(seq)))
     return extended_seq
 
-def get_reads_to_assemble(bam, contig, pos, orient):
+def get_reads_to_assemble(bam, contig, pos, orient, get_quals=False):
 
-    if orient == 'R':
-        softclipped_reads = pysamtools.get_right_softclipped_reads_at_site(bam, contig, pos)
-        unmapped_reads = pysamtools.get_right_unmapped_reads(bam, contig, pos)
-    elif orient == 'L':
-        softclipped_reads = pysamtools.get_left_softclipped_reads_at_site(bam, contig, pos)
-        unmapped_reads = pysamtools.get_left_unmapped_reads(bam, contig, pos)
+    if get_quals:
 
-    return softclipped_reads + unmapped_reads
+        if orient == 'R':
+            softclipped_reads, softclipped_quals = pysamtools.get_right_softclipped_reads_at_site(bam, contig, pos, get_quals=True)
+            unmapped_reads, unmapped_quals = pysamtools.get_right_unmapped_reads(bam, contig, pos, get_quals=True)
+        elif orient == 'L':
+            softclipped_reads, softclipped_quals = pysamtools.get_left_softclipped_reads_at_site(bam, contig, pos, get_quals=True)
+            unmapped_reads, unmapped_quals = pysamtools.get_left_unmapped_reads(bam, contig, pos, get_quals=True)
+
+    else:
+        if orient == 'R':
+            softclipped_reads = pysamtools.get_right_softclipped_reads_at_site(bam, contig, pos, get_quals=True)
+            unmapped_reads = pysamtools.get_right_unmapped_reads(bam, contig, pos, get_quals=True)
+        elif orient == 'L':
+            softclipped_reads = pysamtools.get_left_softclipped_reads_at_site(bam, contig, pos, get_quals=True)
+            unmapped_reads = pysamtools.get_left_unmapped_reads(bam, contig, pos, get_quals=True)
 
 
-def _extendflanks(flanksfile, bamfile, output_file):
-    tmp_output_prefix = '.'.join(basename(output_file).split('.')[:-1])
+    if get_quals:
+        return softclipped_reads + unmapped_reads, softclipped_quals + unmapped_quals
+    else:
+        return softclipped_reads + unmapped_reads
 
+
+def _extendflanks(flanksfile, bamfile, threads, output_file):
     flanks = pd.read_csv(flanksfile, sep='\t')
 
     if flanks.shape[0] == 0:
         logger.info("No flanks found in the input file...")
 
     else:
-        bam = pysam.AlignmentFile(bamfile, 'rb')
-
         sequences = list(flanks['consensus_seq'])
         did_extend = [False]*len(sequences)
 
         logger.info("Running extendflanks algorithm on %d total flanks..." % flanks.shape[0])
-        extensions = flanks.apply(
-            lambda row, bam=bam:
-            extend(bam, row['contig'], row['pos'], row['orient'], row['consensus_seq'], tmp_output_prefix), axis=1
-        )
+
+        flank_rows = [row for index, row in flanks.iterrows()]
+        tmp_outdir = join(dirname(output_file), 'tmp.mustache.minimus.' + str(randint(1, 1e20)))
+        for row in flank_rows:
+            row['bam_path'] = bamfile
+            row['outdir'] = tmp_outdir
+
+        agents = threads
+        with Pool(processes=agents) as pool:
+            extensions = np.array(pool.map(extend, flank_rows))
+        shell("rmdir %s" % tmp_outdir)
 
         flanks['extended'] = pd.DataFrame(flanks['consensus_seq'] != extensions)
         flanks['consensus_seq'] = extensions
         flanks['consensus_seq_length'] = pd.DataFrame(list(map(len, list(flanks['consensus_seq']))))
 
-        cols = flanks.columns.tolist()
-        cols = cols[:-2] + [cols[-1]] + [cols[-2]]
-        flanks = flanks[cols]
+        flanks = flanks.loc[:, ['contig', 'pos', 'orient', 'softclip_count', 'runthrough_count',
+                                'extended', 'consensus_seq_length', 'consensus_seq']]
 
         logger.info("Extended %d flanks using local assembly..." % sum(did_extend))
 
@@ -89,11 +117,10 @@ def _extendflanks(flanksfile, bamfile, output_file):
 @click.command()
 @click.argument('flanksfile', type=click.Path(exists=True))
 @click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--output_file', '-o', default=None, help="The output file to save the results.")
-def extendflanks(flanksfile, bamfile, output_file=None):
-    if not output_file:
-        output_file='.'.join(['mustache', basename(flanksfile).split('.')[0], 'extendflanks.tsv'])
-    _extendflanks(flanksfile, bamfile, output_file)
+@click.option('--threads', '-t', default=1, help="The number of processors to run while finding flank extensions.")
+@click.option('--output_file', '-o', default='mustache.extendflanks.tsv', help="The output file to save the results.")
+def extendflanks(flanksfile, bamfile, threads, output_file=None):
+    _extendflanks(flanksfile, bamfile, threads, output_file)
 
 
 if __name__ == '__main__':

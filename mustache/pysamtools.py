@@ -43,8 +43,9 @@ def get_softclipped_seqs_qualities(bam_file, contig, pos, orient, min_alignment_
 
     return softclipped_seqs, softclipped_qualities
 
-def get_left_softclipped_reads_at_site(bam_file, contig, left_site, softclip_only=False):
+def get_left_softclipped_reads_at_site(bam_file, contig, left_site, get_quals=False, softclip_only=False):
     left_softclipped_reads = []
+    left_softclipped_quals = []
 
     start = left_site + 1
     end = left_site + 2
@@ -63,13 +64,21 @@ def get_left_softclipped_reads_at_site(bam_file, contig, left_site, softclip_onl
                     keep_seq = left_softclipped_sequence(read)
                 else:
                     keep_seq = read.query_sequence
+                    keep_quals = get_query_qualities_ascii(read, bam_file)
+
                 left_softclipped_reads.append(keep_seq)
+                left_softclipped_quals.append(keep_quals)
 
-    return left_softclipped_reads
+    if get_quals:
+        return left_softclipped_reads, left_softclipped_quals
+    else:
+        return left_softclipped_reads
 
 
-def get_right_softclipped_reads_at_site(bam_file, contig, right_site, softclip_only=False):
+
+def get_right_softclipped_reads_at_site(bam_file, contig, right_site, get_quals=False, softclip_only=False):
     right_softclipped_reads = []
+    right_softclipped_quals = []
 
     start = right_site - 1
     end = right_site
@@ -86,13 +95,20 @@ def get_right_softclipped_reads_at_site(bam_file, contig, right_site, softclip_o
                     keep_seq = right_softclipped_sequence(read)
                 else:
                     keep_seq = read.query_sequence
+                    keep_quals = get_query_qualities_ascii(read, bam_file)
+
                 right_softclipped_reads.append(keep_seq)
+                right_softclipped_quals.append(keep_quals)
 
-    return right_softclipped_reads
+    if get_quals:
+        return right_softclipped_reads, right_softclipped_quals
+    else:
+        right_softclipped_reads
 
 
-def get_right_unmapped_reads(bam_file, contig, right_site, search_region_length=500):
+def get_right_unmapped_reads(bam_file, contig, right_site, get_quals=False, search_region_length=500):
     right_unmapped_reads = []
+    right_unmapped_quals = []
 
     start = right_site - search_region_length
     end = right_site
@@ -104,12 +120,17 @@ def get_right_unmapped_reads(bam_file, contig, right_site, search_region_length=
 
         if (not read.is_reverse) and read.mate_is_unmapped:
             right_unmapped_reads.append(read.get_tag('MT'))
+            right_unmapped_quals.append(read.get_tag('MQ'))
 
-    return right_unmapped_reads
+    if get_quals:
+        return right_unmapped_reads, right_unmapped_quals
+    else:
+        return right_unmapped_reads
 
 
-def get_left_unmapped_reads(bam_file, contig, left_site, search_region_length=500):
+def get_left_unmapped_reads(bam_file, contig, left_site, get_quals=False, search_region_length=500):
     left_unmapped_reads = []
+    left_unmapped_quals = []
 
     start = left_site + 1
     end = left_site + 1 + search_region_length
@@ -122,8 +143,13 @@ def get_left_unmapped_reads(bam_file, contig, left_site, search_region_length=50
 
         if read.is_reverse and read.mate_is_unmapped:
             left_unmapped_reads.append(read.get_tag('MT'))
+            left_unmapped_quals.append(read.get_tag('MQ'))
 
-    return left_unmapped_reads
+    if get_quals:
+        return left_unmapped_reads, left_unmapped_quals
+    else:
+        return left_unmapped_reads
+
 
 def contig_length(bam, contig):
     return dict(zip(bam.references, bam.lengths))[contig]
@@ -137,3 +163,10 @@ def count_runthrough_reads(bam, contig, site):
         for read in bam.fetch(contig, site, site+1):
             count += 1
         return count
+
+def get_query_qualities_ascii(read, bam):
+    return read.tostring(bam).split('\t')[10]
+
+def query_qualities_to_phred(quals):
+    return [ord(q)-33 for q in quals]
+

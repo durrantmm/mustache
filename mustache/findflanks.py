@@ -261,13 +261,11 @@ def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_
 
 @click.command()
 @click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--output_file', '-o', default=None, help="The output file to save the results.")
+@click.option('--output_file', '-o', default='mustache.findflanks.tsv', help="The output file to save the results.")
 @click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
 @click.option('--min_softclip_count', '-mincount', default=10, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
 @click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
 def findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, output_file=None):
-    if not output_file:
-        output_file = '.'.join(['mustache', basename(bamfile).split('.')[0], 'findflanks.tsv'])
     _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, output_file)
 
 
