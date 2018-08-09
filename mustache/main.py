@@ -32,10 +32,12 @@ def cli():
 def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softclip_count, min_alignment_quality,
                         blastdb, checkexist):
 
+    if output_prefix:
+        makedirs(dirname(output_prefix), exist_ok=True)
+
     if not output_prefix:
         output_prefix = '.'.join(['mustache', basename(bamfile).split('.')[0]])
 
-    makedirs(dirname(output_prefix), exist_ok=True)
 
     logger.info("BEGINNING FINDFLANKS...")
     findflanks_output_file = output_prefix + '.findflanks.tsv'
@@ -88,10 +90,11 @@ def single_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softcli
 def paired_end_pipeline(bamfile, output_prefix, min_softclip_length, min_softclip_count, min_alignment_quality,
                         threads, blastdb, checkexist):
 
+    if output_prefix:
+        makedirs(dirname(output_prefix), exist_ok=True)
+
     if not output_prefix:
         output_prefix = '.'.join(['mustache', basename(bamfile).split('.')[0]])
-
-    makedirs(dirname(output_prefix), exist_ok=True)
 
     logger.info("BEGINNING FINDFLANKS...")
     findflanks_output_file = output_prefix + '.findflanks.tsv'

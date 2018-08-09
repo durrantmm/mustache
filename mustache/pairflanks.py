@@ -8,7 +8,7 @@ import numpy as np
 from snakemake import shell
 from random import randint
 from mustache import fastatools, embosstools
-from os.path import basename, join
+from os.path import basename, join, dirname
 
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
@@ -29,7 +29,13 @@ def get_flank_pairs(flanks, tmp_dir, tmp_output_prefix=None, max_direct_repeat_l
 def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
 
     column_names = ['contig', 'index_5p', 'index_3p', 'pos_5p', 'pos_3p', 'softclip_count_5p', 'softclip_count_3p',
-                    'runthrough_count_5p', 'runthrough_count_3p', 'extended_5p', 'extended_3p', 'seq_5p', 'seq_3p']
+                    'runthrough_count_5p', 'runthrough_count_3p']
+
+    if 'extended' in list(flanks.loc[0,:].keys()):
+        column_names += ['extended_5p', 'extended_3p']
+
+    column_names += ['seq_5p', 'seq_3p']
+
     outpairs = dict()
 
     for index_5p, row in flanks.iterrows():
@@ -38,19 +44,28 @@ def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
             continue
 
         contig, pos_5p = row['contig'], row['pos']
-        softclip_count_5p, runthrough_count_5p, extended_5p, seq_5p = row['softclip_count'], row['runthrough_count'], \
-                                                                      row['extended'], row['consensus_seq']
+        softclip_count_5p, runthrough_count_5p, seq_5p = row['softclip_count'], row['runthrough_count'], row['consensus_seq']
+
+        if 'extended' in list(row.keys()):
+            extended_5p, = row['extended']
+
         min_pos = pos_5p - max_direct_repeat_length
 
         candidate_pairs = flanks.query('contig == @contig & pos > @min_pos & pos < @pos_5p & orient == "L"')
 
         for index_3p, row2 in candidate_pairs.iterrows():
-            pos_3p, softclip_count_3p, runthrough_count_3p, extended_3p, seq_3p = row2['pos'], row2['softclip_count'], \
-                                                                                  row2['runthrough_count'], row2['extended'],\
-                                                                                  row2['consensus_seq']
+            pos_3p, softclip_count_3p, runthrough_count_3p, seq_3p = row2['pos'], row2['softclip_count'], \
+                                                                     row2['runthrough_count'], row2['consensus_seq']
+            if 'extended' in list(row2.keys()):
+                extended_3p = row2['extended']
 
-            outpairs[len(outpairs)] = [contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p,
-                                       runthrough_count_5p, runthrough_count_3p, extended_5p, extended_3p, seq_5p, seq_3p]
+            out = [contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, runthrough_count_5p, runthrough_count_3p]
+
+            if 'extended' in list(row2.keys()):
+                out += [extended_5p, extended_3p]
+
+            out += [seq_5p, seq_3p]
+            outpairs[len(outpairs)] =  out
 
     outpairs = pd.DataFrame.from_dict(outpairs, orient='index', columns=column_names)
     return outpairs
@@ -63,8 +78,12 @@ def check_pairs_for_ir(pairs, truncated_flank_length, ir_distance_from_end, tmp_
     ir_3p_all = []
 
     for index, row in pairs.iterrows():
-        contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, \
-        runthrough_count_5p, runthrough_count_3p, extended_5p, extended_3p, seq_5p, seq_3p = row
+        if 'extended_5p' in list(row.keys()):
+            contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, \
+            runthrough_count_5p, runthrough_count_3p, extended_5p, extended_3p, seq_5p, seq_3p = row
+        else:
+            contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, \
+            runthrough_count_5p, runthrough_count_3p, seq_5p, seq_3p = row
 
         trunc_seq_5p = truncate_sequence(seq_5p, truncated_flank_length, orient='R')
         trunc_seq_3p = truncate_sequence(seq_3p, truncated_flank_length, orient='L')
@@ -114,7 +133,6 @@ def filter_pairs(pairs):
     sorted_pairs = pairs.sort_values(['IR_length', 'difflength', 'diffcount'], ascending=[False, True, True])
 
     keep_row = []
-    print(sorted_pairs.to_string())
 
     for index in sorted_pairs.index:
         row = sorted_pairs.loc[index, :]
@@ -175,7 +193,7 @@ def _pairflanks(flanksfile, output_file):
 
     else:
 
-        flank_pairs = get_flank_pairs(flanks, output_file, tmp_output_prefix=tmp_output_prefix)
+        flank_pairs = get_flank_pairs(flanks, dirname(output_file), tmp_output_prefix=tmp_output_prefix)
 
         logger.info("Identified %d flank pairs with inverted repeats..." % flank_pairs.shape[0])
         if output_file:
