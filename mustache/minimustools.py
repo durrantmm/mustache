@@ -9,7 +9,6 @@ import pysam
 from mustache.bwatools import index_genome, align_to_genome_se
 from mustache.sctools import left_softclipped_sequence_strict, right_softclipped_sequence_strict
 from mustache.misc import revcomp
-from mustache.config import TMPDIR
 from mustache.pysamtools import query_qualities_to_phred
 from random import randint, sample
 

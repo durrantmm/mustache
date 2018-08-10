@@ -8,7 +8,7 @@ import numpy as np
 from snakemake import shell
 from mustache import fastatools, embosstools, blasttools
 from random import randint
-from mustache.config import BLASTDB, TMPDIR
+from mustache.config import BLASTDB
 from os.path import join
 
 verbose=True

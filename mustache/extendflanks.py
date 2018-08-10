@@ -12,7 +12,6 @@ from mustache import fastatools, embosstools, sctools, pysamtools, minimustools
 from mustache.misc import revcomp
 from os.path import basename
 from multiprocessing import Pool
-from mustache.config import TMPDIR
 from os.path import join, dirname
 
 verbose=True

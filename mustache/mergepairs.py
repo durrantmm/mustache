@@ -110,12 +110,10 @@ def _mergepairs(pairsfiles, output_file=None, similarity=0.9, comparison_sequenc
             seq3p_cluster_dict = {seq[::-1]: max(clust, key=len)[::-1] for clust in seq3p_cluster_seqs for seq in clust}
             pairs_at_site.loc[:, 'seq_3p'] = pairs_at_site.apply(lambda row, seqdict=seq3p_cluster_dict: seqdict[row['seq_3p']], axis=1)
 
-
             is_families_3p = list(pairs_at_site['blast_IS_family_3p'])
             seq3p_cluster_is_families = [list(np.array(is_families_3p)[clust]) for clust in seq3p_clusters]
             isfamily3p_cluster_dict = {family: max(set(clust), key=clust.count) for clust in seq3p_cluster_is_families for family in clust}
             pairs_at_site.loc[:, 'blast_IS_family_3p'] = pairs_at_site.apply(lambda row, seqdict=isfamily3p_cluster_dict: seqdict[row['blast_IS_family_3p']], axis=1)
-
 
 
             pairs_at_site.drop_duplicates(inplace=True)

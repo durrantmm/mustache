@@ -7,7 +7,6 @@ from random import randint
 from Bio.Seq import Seq
 from Bio.Alphabet import IUPAC
 from os.path import isfile
-from mustache.config import TMPDIR
 from os.path import join
 
 
