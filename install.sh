@@ -16,7 +16,6 @@ CURRENT_DIR="$(pwd -P)"
 echo "BLASTDB = '${CURRENT_DIR}/data/mergem_blast_db/mergem'" > mustache/config.py
 echo "HMMDB = '${CURRENT_DIR}/data/clusters.faa.hmm'" >> mustache/config.py
 echo "FRAGGENESCAN = '${CURRENT_DIR}/bin/FragGeneScan1.30/run_FragGeneScan.pl'" >> mustache/config.py
-echo "TMPDIR = '/tmp'" >> mustache/config.py
 
 echo "Unzipping mergem database":
 rm -rf data/mergem_blast_db
