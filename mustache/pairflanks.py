@@ -13,7 +13,7 @@ from os.path import basename, join, dirname
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
-def get_flank_pairs(flanks, tmp_dir, tmp_output_prefix=None, max_direct_repeat_length=18,
+def get_flank_pairs(flanks, tmp_dir, tmp_output_prefix=None, max_direct_repeat_length=30,
                     truncated_flank_length=40, ir_distance_from_end=15):
 
     logger.info("Finding all flank pairs within %d bases of each other ..." % max_direct_repeat_length)

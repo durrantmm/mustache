@@ -98,9 +98,9 @@ def _mergepairs(pairsfiles, output_file=None, similarity=0.9, comparison_sequenc
             pairs_at_site.loc[:, 'seq_5p'] = pairs_at_site.apply(lambda row, seqdict=seq5p_cluster_dict: seqdict[row['seq_5p']], axis=1)
 
             is_families_5p = list(pairs_at_site['blast_IS_family_5p'])
-            seq5p_cluster_is_families = [list(np.array(is_families_5p)[clust]) for clust in seq5p_clusters]
+            seq5p_cluster_is_families = [list(map(str, list(np.array(is_families_5p)[clust]))) for clust in seq5p_clusters]
             isfamily5p_cluster_dict = {family: max(set(clust), key=clust.count) for clust in seq5p_cluster_is_families for family in clust}
-            pairs_at_site.loc[:, 'blast_IS_family_5p'] = pairs_at_site.apply(lambda row, seqdict=isfamily5p_cluster_dict: seqdict[row['blast_IS_family_5p']], axis=1)
+            pairs_at_site.loc[:, 'blast_IS_family_5p'] = pairs_at_site.apply(lambda row, seqdict=isfamily5p_cluster_dict: seqdict[str(row['blast_IS_family_5p'])], axis=1)
 
 
             seqs3p = [seq[::-1] for seq in list(pairs_at_site['seq_3p'])]
@@ -111,9 +111,9 @@ def _mergepairs(pairsfiles, output_file=None, similarity=0.9, comparison_sequenc
             pairs_at_site.loc[:, 'seq_3p'] = pairs_at_site.apply(lambda row, seqdict=seq3p_cluster_dict: seqdict[row['seq_3p']], axis=1)
 
             is_families_3p = list(pairs_at_site['blast_IS_family_3p'])
-            seq3p_cluster_is_families = [list(np.array(is_families_3p)[clust]) for clust in seq3p_clusters]
+            seq3p_cluster_is_families = [list(map(str, list(np.array(is_families_3p)[clust]))) for clust in seq3p_clusters]
             isfamily3p_cluster_dict = {family: max(set(clust), key=clust.count) for clust in seq3p_cluster_is_families for family in clust}
-            pairs_at_site.loc[:, 'blast_IS_family_3p'] = pairs_at_site.apply(lambda row, seqdict=isfamily3p_cluster_dict: seqdict[row['blast_IS_family_3p']], axis=1)
+            pairs_at_site.loc[:, 'blast_IS_family_3p'] = pairs_at_site.apply(lambda row, seqdict=isfamily3p_cluster_dict: seqdict[str(row['blast_IS_family_3p'])], axis=1)
 
 
             pairs_at_site.drop_duplicates(inplace=True)

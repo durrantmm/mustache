@@ -19,7 +19,7 @@ def run_hmmsearch(fasta, outfile, database, threads=2):
     shell(hmmsearch_command)
 
 # Figure out evalue_cutoff
-def process_hmm_results(hmm_results, evalue_cutoff=0.01):
+def process_hmm_results(hmm_results, evalue_cutoff=1e-10):
 
     results = dict()
 
