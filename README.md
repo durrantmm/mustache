@@ -1,4 +1,4 @@
-#*mustache* - Command-line tools to identify mobile element insertions from short-read sequencing data
+# *mustache* - Command-line tools to identify mobile element insertions from short-read sequencing data
 
 *mustache* is a computational tool written in python to identify large insertions from short-read sequencing data.
 
