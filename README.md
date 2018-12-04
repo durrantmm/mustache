@@ -1,8 +1,10 @@
-# Metagenomic Intra-Species Diversity Analysis System (MIDAS)
+#*mustache* - Command-line tools to identify mobile element insertions from short-read sequencing data
 
-MIDAS is an integrated pipeline that leverages >30,000 reference genomes to estimate bacterial species abundance and strain-level genomic variation, including gene content and SNPs, from shotgun metagnomes. 
+*mustache* is a computational tool written in python to identify large insertions from short-read sequencing data.
+
+Follow the links below to learn more.
 
 ## Table of Contents
-1. [How it works](docs/overview.md)  
+1. [How it works](docs/howitworks.md)  
 2. [Install or update software](docs/install.md)  
 3. [Step-by-step tutorial](docs/tutorial.md)  
