@@ -1,4 +1,4 @@
-[Back to main page](README.md)  
+[Back to main page](../README.md)  
 
 # Installing Mustache
 First, install miniconda3. This is an environment management system that should keep everything organized.
