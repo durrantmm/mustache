@@ -8,6 +8,12 @@ def left_softclip_length(read):
 def right_softclip_length(read):
     return read.cigartuples[-1][1]
 
+def left_softclipped_position(read):
+    return read.get_reference_positions()[0]-1
+
+def right_softclipped_position(read):
+    return read.get_reference_positions()[-1] + 1
+
 def is_right_softclipped_lenient(read):
     if read.cigartuples[-1][0] == 4:
         return True
@@ -141,3 +147,26 @@ def left_softclip_qualities(read):
             return [list(read.query_qualities)[0]]
     else:
         return []
+
+def is_double_softclipped_lenient(read):
+
+    if is_left_softclipped_lenient(read) and is_right_softclipped_lenient(read):
+        return True
+    else:
+        return False
+
+def read_meets_min_alignment_inner_length(read, min_alignment_inner_length):
+
+    if not is_double_softclipped_lenient(read):
+        return True
+
+    right_length = len(right_softclipped_sequence(read))
+    left_length = len(left_softclipped_sequence(read))
+
+    total_length = len(read.query_sequence)
+    aligned_length = total_length - right_length - left_length
+
+    if aligned_length >= min_alignment_inner_length:
+        return True
+    else:
+        return False

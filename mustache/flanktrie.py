@@ -3,6 +3,7 @@ warnings.filterwarnings("ignore")
 # Adapted from code by Shubhadeep Roychowdhury available at https://towardsdatascience.com/implementing-a-trie-data-structure-in-python-in-less-than-100-lines-of-code-a877ea23c1a1
 from typing import Tuple
 import sys
+from collections import defaultdict
 
 class TrieNode(object):
     """
@@ -13,9 +14,7 @@ class TrieNode(object):
         self.char = char
         self.children = {}
         self.parent = parent
-        # Is it the last character of the word.`
         self.word_count = 0
-        # How many times this character appeared in the addition process
         self.counter = 1
         self.total_lifetime_children = 0
         self.qual = 0
@@ -59,6 +58,33 @@ class Trie:
 
         node.word_count += 1
 
+    def load(self, word, quals, counts):
+        """
+        Loading a word in the trie structure
+        """
+
+        if len(word) != len(quals) != len(counts):
+            print("Loading values have different lengths")
+            sys.exit()
+
+        node = self.root
+        for i in range(len(word)):
+            char = word[i]
+            qual = quals[i]
+            count = counts[i]
+            found_in_child = False
+            # Search for the character in the children of the present `node`
+
+            if char in node.children:
+                child = node.children[char]
+                node = child
+            else:
+                new_node = TrieNode(char, node)
+                new_node.qual = qual
+                new_node.counter = count
+                node.children[char] = new_node
+                node.total_lifetime_children += 1
+                node = new_node
 
     def make_subtrie(self, words):
         subtrie = Trie()
@@ -90,6 +116,13 @@ class Trie:
 
 
         return subtrie
+
+
+    def load_words(self, words, quals, counts):
+
+        for i in range(len(words)):
+            word, qual, count = words[i], quals[i], counts[i]
+            self.load(word, qual, count)
 
 
     def find_prefix(self, prefix: str) -> Tuple[bool, int]:
@@ -152,13 +185,30 @@ class Trie:
 
         return quals
 
-    def traverse_both(self):
+    def traverse_counts(self, prefix=[], node=None):
+        if node is None:
+            node = self.root
+            count = []
+        else:
+            count = prefix + [node.counter]
+
+        if len(node.children) == 0:
+            return [count]
+
+        counts = []
+        for child in node.children.values():
+            counts = counts + self.traverse_counts(count, child)
+
+        return counts
+
+    def traverse_all(self):
 
         seqs = self.traverse_seqs()
         quals = self.traverse_quals()
+        counts = self.traverse_counts()
 
-        both = list(zip(seqs, quals))
-        return(both)
+        all = list(zip(seqs, quals, counts))
+        return(all)
 
     def calc_total_words(self, word):
         total_words = 0
@@ -252,9 +302,55 @@ class Trie:
     def calc_word_count_diff(self, word1, word2):
 
         node = self.root
-        #for c in word1:
-        #    for
 
+    def make_consensus_word(self, mincount):
+
+        total_count = sys.maxsize
+        current_position_nodes = set([self.root])
+
+        consensus = ''
+        while len(current_position_nodes) > 0:
+
+            total_count = 0
+            next_position_nodes = set()
+            charquals = defaultdict(int)
+
+            # Add up char qualities and counts
+            for n in current_position_nodes:
+                charquals[n.char] += n.qual
+                total_count += n.counter
+                if n == self.root:
+                    total_count = sys.maxsize
+
+            if total_count < mincount:
+                break
+
+            # Get the next consensus character
+            best_chars = self.get_best_qual_chars(charquals)
+            if len(best_chars) > 1:
+                consensus += 'N'
+            else:
+                consensus += best_chars.pop()
+
+            # Load up the next level of nodes
+            for n in current_position_nodes:
+                for char in n.children:
+                    next_position_nodes.add(n.children[char])
+
+            current_position_nodes = next_position_nodes
+
+        return consensus
+
+    def get_best_qual_chars(self, charquals):
+        bestchar = set([''])
+        bestqual = -sys.maxsize
+        for c in charquals:
+            if charquals[c] == bestqual:
+                bestchar.add(c)
+            elif charquals[c] > bestqual:
+                bestchar = set([c])
+                bestqual = charquals[c]
+        return bestchar
 
 if __name__ == "__main__":
     trie = Trie()

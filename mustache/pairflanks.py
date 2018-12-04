@@ -9,11 +9,13 @@ from snakemake import shell
 from random import randint
 from mustache import fastatools, embosstools
 from os.path import basename, join, dirname
-
+from Bio import SeqIO
+import pysam
+from collections import defaultdict
 verbose=True
 logger = gogo.Gogo(__name__, verbose=verbose).logger
 
-def get_flank_pairs(flanks, tmp_dir, tmp_output_prefix=None, max_direct_repeat_length=30,
+def get_flank_pairs(flanks, tmp_dir, tmp_output_prefix=None, max_direct_repeat_length=20,
                     truncated_flank_length=40, ir_distance_from_end=15):
 
     logger.info("Finding all flank pairs within %d bases of each other ..." % max_direct_repeat_length)
@@ -123,6 +125,7 @@ def check_pairs_for_ir(pairs, truncated_flank_length, ir_distance_from_end, tmp_
 
     return pairs
 
+
 def filter_pairs(pairs):
     pairs.loc[:, 'direct_repeat_length'] = pairs.loc[:, 'pos_5p'] - pairs.loc[:, 'pos_3p'] -1
 
@@ -180,33 +183,162 @@ def truncate_sequence(seq, truncated_seq_length, orient='R'):
             truncated_seq = truncated_seq[-truncated_seq_length:]
     return truncated_seq
 
-def _pairflanks(flanksfile, output_file):
+def get_direct_repeats(flank_pairs, bamfile, genome):
+
+    genome_dict = {rec.id: rec.seq for rec in SeqIO.parse(genome, 'fasta')}
+    positions = get_reference_direct_repeats(flank_pairs, genome_dict)
+    positions = get_read_direct_repeats(positions, genome_dict, bamfile)
+
+    flank_pairs = flank_pairs.merge(positions, how='left')
+    return flank_pairs
+
+def get_read_direct_repeats(positions, genome_dict, bamfile, target_region_size=50):
+
+    bam = pysam.AlignmentFile(bamfile, 'rb')
+
+    direct_repeats = []
+    target_regions = []
+    for index, row in positions.iterrows():
+        contig, start, end = row['contig'], row['pos_3p'], row['pos_5p']
+
+        direct_repeat_center = round((end + start) / 2)
+        expanded_start = int(direct_repeat_center - (target_region_size / 2))
+        expanded_end = int(direct_repeat_center + (target_region_size / 2))
+
+        add_start_n = 0
+        add_end_n = 0
+        if expanded_start < 0:
+            add_start_n = abs(expanded_start)
+            expanded_start = 0
+        if expanded_end > len(genome_dict[contig]):
+            add_end_n = expanded_end - len(genome_dict[contig])
+            expanded_end = len(genome_dict[contig])
+
+        target_region = 'N' * add_start_n + genome_dict[contig][expanded_start:expanded_end] + 'N' * add_end_n
+        target_region_positions = range(expanded_start, expanded_end)
+
+        target_region_reads = initialize_target_region_reads(target_region, expanded_start, expanded_end)
+        for read in bam.fetch(contig, expanded_start, expanded_end):
+            ref_positions = read.get_reference_positions(full_length=True)
+            read_query = read.query_sequence
+            read_qualities = read.query_qualities
+
+            i = 0
+            for pos in ref_positions:
+                if pos is not None and pos in target_region_reads:
+                    target_region_reads[pos][read_query[i]] += read_qualities[i]
+                i += 1
+
+        consensus_target_region = get_consensus_target_region(target_region_reads)
+        consensus_direct_repeat = consensus_target_region[target_region_positions.index((start+1)):target_region_positions.index(end)]
+
+        direct_repeats.append(consensus_direct_repeat)
+        target_regions.append(consensus_target_region)
+
+    positions['direct_repeat_reads_consensus'] = direct_repeats
+    positions['target_region_reads_consensus'] = target_regions
+
+    return positions
+
+def get_consensus_target_region(target_region_reads):
+    start, end = min(target_region_reads.keys()), max(target_region_reads.keys())+1
+    consensus = ''
+    for pos in range(start, end):
+        best_qual = 0
+        best_nuc = ''
+        for nuc in target_region_reads[pos]:
+            qual = target_region_reads[pos][nuc]
+            if qual > best_qual:
+                best_qual = qual
+                best_nuc = nuc
+        consensus += best_nuc
+    return consensus
+
+
+def initialize_target_region_reads(target_region, expanded_start, expanded_end):
+    target_region_reads = defaultdict(lambda: defaultdict(int))
+    i = 0
+    for pos in range(expanded_start, expanded_end):
+        target_region_reads[pos][target_region[i]] += 1
+        i += 1
+    return target_region_reads
+
+
+def get_reference_direct_repeats(flank_pairs, genome_dict, target_region_size=50):
+    positions = flank_pairs.loc[:, ['contig', 'pos_5p', 'pos_3p']].drop_duplicates().reset_index(drop=True)
+
+    direct_repeats = []
+    target_regions = []
+    for index, row in positions.iterrows():
+        contig, start, end = row['contig'], row['pos_3p'], row['pos_5p']
+
+        direct_repeat = genome_dict[contig][(start+1):end]
+
+        direct_repeat_center = round((end + start) / 2)
+        expanded_start = int(direct_repeat_center - (target_region_size/2))
+        expanded_end = int(direct_repeat_center + (target_region_size / 2))
+
+        add_start_n = 0
+        add_end_n = 0
+        if expanded_start < 0:
+            add_start_n = abs(expanded_start)
+            expanded_start = 0
+        if expanded_end > len(genome_dict[contig]):
+            add_end_n = expanded_end - len(genome_dict[contig])
+            expanded_end = len(genome_dict[contig])
+
+        target_region = 'N'*add_start_n + genome_dict[contig][expanded_start:expanded_end] + 'N'*add_end_n
+
+        direct_repeats.append(''.join(direct_repeat))
+        target_regions.append(''.join(target_region))
+
+    positions['direct_repeat_reference'] = direct_repeats
+    positions['target_region_reference'] = target_regions
+    return positions
+
+
+def _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_file):
     tmp_output_prefix = '.'.join(basename(output_file).split('.')[:-1])
 
     flanks = pd.read_csv(flanksfile, sep='\t')
 
     if flanks.shape[0] == 0:
         logger.info("No flanks found in the input file...")
+        flank_pairs = pd.DataFrame(
+            columns=['pair_id', 'contig', 'pos_5p', 'pos_3p', 'softclip_count_5p', 'softclip_count_3p',
+                     'runthrough_count_5p', 'runthrough_count_3p', 'extended_5p', 'extended_3p', 'has_IR', 'IR_length',
+                     'IR_5p', 'IR_3p', 'seq_5p', 'seq_3p', 'direct_repeat_reference', 'target_region_reference',
+                     'direct_repeat_reads_consensus','target_region_reads_consensus'])
+
         if output_file:
-            flanks.to_csv(output_file, sep='\t', index=False)
-        return flanks
+            flank_pairs.to_csv(output_file, sep='\t', index=False)
+        return flank_pairs
 
     else:
 
-        flank_pairs = get_flank_pairs(flanks, dirname(output_file), tmp_output_prefix=tmp_output_prefix)
-
+        flank_pairs = get_flank_pairs(flanks, dirname(output_file), tmp_output_prefix=tmp_output_prefix,
+                                      max_direct_repeat_length=max_direct_repeat_length)
         logger.info("Identified %d flank pairs with inverted repeats..." % flank_pairs.shape[0])
+        logger.info("Getting direct repeats and surrounding genomic region...")
+        flank_pairs = get_direct_repeats(flank_pairs, bamfile, genome)
+
         if output_file:
             logger.info("Saving results to file %s" % output_file)
-            flank_pairs.to_csv(output_file, sep='\t', index=False)
+            flank_pairs.reset_index(drop=True)
+            flank_pairs.index = flank_pairs.index + 1
+            flank_pairs.index.name = 'pair_id'
+            flank_pairs.to_csv(output_file, sep='\t')
 
         return flank_pairs
 
 @click.command()
 @click.argument('flanksfile', type=click.Path(exists=True))
+@click.argument('bamfile', type=click.Path(exists=True))
+@click.argument('genome', type=click.Path(exists=True))
+@click.option('--max_direct_repeat_length', '-maxdr', default=20, help="The maximum length of a direct repeat to consider a pair.")
 @click.option('--output_file', '-o', default='mustache.pairflanks.tsv', help="The output file to save the results.")
-def pairflanks(flanksfile, output_file=None):
-    _pairflanks(flanksfile, output_file)
+def pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_file=None):
+    _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_file)
 
 
 if __name__ == '__main__':

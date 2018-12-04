@@ -19,34 +19,50 @@ logger = gogo.Gogo(__name__, verbose=verbose).logger
 
 def extend(row):
     bam = pysam.AlignmentFile(row['bam_path'], 'rb')
-    contig, pos, orient, seq = row['contig'], row['pos'], row['orient'], row['consensus_seq']
+    contig, pos_5p, pos_3p, seq_5p, seq_3p = row['contig'], row['pos_5p'], row['pos_3p'], row['seq_5p'], row['seq_3p']
     tmp_outdir = row['outdir']
 
-    logger.info("Attempting to extend sequence at %s..." % ' '.join(map(str, [contig, pos, orient])))
+    logger.info("Attempting to extend flank sequences at %s..." % ' '.join(map(str, [contig, pos_3p, pos_5p])))
+
+    extended_seq_5p = get_extended_sequence(bam, contig, pos_5p, seq_5p, 'R', tmp_outdir)
+    extended_seq_3p = get_extended_sequence(bam, contig, pos_3p, seq_3p, 'L', tmp_outdir)
+
+    if extended_seq_5p != seq_5p:
+        logger.info("5' sequence at %s extended successfully by %d base pairs" % (
+            ':'.join(map(str, [contig, pos_5p])), len(extended_seq_5p) - len(seq_5p)))
+    if extended_seq_3p != seq_3p:
+        logger.info("3' sequence at %s extended successfully by %d base pairs" % (
+            ':'.join(map(str, [contig, pos_3p])), len(extended_seq_3p) - len(seq_3p)))
+
+    return extended_seq_5p, extended_seq_3p
+
+def get_extended_sequence(bam, contig, pos, seq, orient, tmp_outdir):
+    seq = seq.upper()
     reads, quals = get_reads_to_assemble(bam, contig, pos, orient, get_quals=True)
+
     if len(reads) == 0:
         return seq
 
-    #print("RUNNING ASSEMBLY")
+    # print("RUNNING ASSEMBLY")
     assembler = minimustools.MinimusAssembler(reads, quals, outdir=tmp_outdir)
     assembler.assemble()
 
-    #print("CHECKING IF SOMETHING ASSEMBLED")
+    # print("CHECKING IF SOMETHING ASSEMBLED")
     if not assembler.something_assembled():
         assembler.delete_files()
         return seq
 
-    #print("ALIGNING TO ASSEMBLY")
+    # print("ALIGNING TO ASSEMBLY")
     assembler.align_seq_to_assembly(seq)
-    #print("RETRIEVING EXTENDED SEQUENCE")
+    # print("RETRIEVING EXTENDED SEQUENCE")
     extended_seq = assembler.retrieve_extended_sequence(orient)
     assembler.delete_files()
 
     if extended_seq is None:
         return seq
 
-    logger.info("Sequence extended successfully by %d base pairs" % (len(extended_seq) - len(seq)))
-    return extended_seq
+    return extended_seq.upper()
+
 
 def get_reads_to_assemble(bam, contig, pos, orient, get_quals=False):
 
@@ -74,69 +90,52 @@ def get_reads_to_assemble(bam, contig, pos, orient, get_quals=False):
         return softclipped_reads + unmapped_reads
 
 
-def _extendflanks(flanksfile, bamfile, threads, output_file):
-    flanks = pd.read_csv(flanksfile, sep='\t')
+def _extendpairs(pairsfile, bamfile, threads, output_file):
+    pairs = pd.read_csv(pairsfile, sep='\t')
 
-    if flanks.shape[0] == 0:
-        logger.info("No flanks found in the input file...")
+    if pairs.shape[0] == 0:
+        logger.info("No pairs found in the input file...")
 
     else:
-        sequences = list(flanks['consensus_seq'])
-        did_extend = [False]*len(sequences)
+        sequences_5p = list(pairs['seq_5p'])
+        sequences_3p = list(pairs['seq_3p'])
 
-        logger.info("Running extendflanks algorithm on %d total flanks..." % flanks.shape[0])
+        logger.info("Running extendpairs algorithm on %d total pairs..." % pairs.shape[0])
 
-        flank_rows = [row for index, row in flanks.iterrows()]
+        pair_rows = [row for index, row in pairs.iterrows()]
         tmp_outdir = join(dirname(output_file), 'tmp.mustache.minimus.' + str(randint(1, 1e20)))
-        for row in flank_rows:
+        for row in pair_rows:
             row['bam_path'] = bamfile
             row['outdir'] = tmp_outdir
 
         agents = threads
         with Pool(processes=agents) as pool:
-            extensions = np.array(pool.map(extend, flank_rows))
+            extensions = np.array(pool.map(extend, pair_rows))
         shell("rmdir %s" % tmp_outdir)
 
-        flanks['extended'] = pd.DataFrame(flanks['consensus_seq'] != extensions)
-        flanks['consensus_seq'] = extensions
-        flanks['consensus_seq_length'] = pd.DataFrame(list(map(len, list(flanks['consensus_seq']))))
+        extensions_5p = [pair[0] for pair in extensions]
+        extensions_3p = [pair[1] for pair in extensions]
 
-        flanks = flanks.loc[:, ['contig', 'pos', 'orient', 'softclip_count', 'runthrough_count',
-                                'extended', 'consensus_seq_length', 'consensus_seq']]
-
-        logger.info("Extended %d flanks using local assembly..." % sum(did_extend))
+        pairs['extended_5p'] = list(pairs['seq_5p'] != extensions_5p)
+        pairs['extended_3p'] = list(pairs['seq_3p'] != extensions_3p)
+        pairs['seq_5p'] = extensions_5p
+        pairs['seq_3p'] = extensions_3p
 
     if output_file:
         logger.info("Saving results to file %s" % output_file)
-        flanks.to_csv(output_file, sep='\t', index=False)
+        pairs.to_csv(output_file, sep='\t', index=False)
 
-    return flanks
+    return pairs
 
 
 @click.command()
-@click.argument('flanksfile', type=click.Path(exists=True))
+@click.argument('pairsfile', type=click.Path(exists=True))
 @click.argument('bamfile', type=click.Path(exists=True))
 @click.option('--threads', '-t', default=1, help="The number of processors to run while finding flank extensions.")
-@click.option('--output_file', '-o', default='mustache.extendflanks.tsv', help="The output file to save the results.")
-def extendflanks(flanksfile, bamfile, threads, output_file=None):
-    _extendflanks(flanksfile, bamfile, threads, output_file)
+@click.option('--output_file', '-o', default='mustache.extendpairs.tsv', help="The output file to save the results.")
+def extendpairs(pairsfile, bamfile, threads, output_file=None):
+    _extendpairs(pairsfile, bamfile, threads, output_file)
 
 
 if __name__ == '__main__':
-    extendflanks()
-    #seqs = ['ACGCA', 'ACG', 'ACGC', 'ACGT', 'ACGTC', 'ACGTCA', 'ACGTCAT', 'ACGTCAG', 'ACGTCAT']
-    #clusters = get_sequence_clusters(seqs)
-
-    #mytrie = flanktrie.Trie()
-    #for s in seqs:
-    #    mytrie.add(s)
-
-    #print(mytrie.traverse())
-    #print(mytrie.calc_total_shared_words('ACGTCAG', 'ACGTCAT'))
-    #print(mytrie.calc_total_unique_shared_words('ACGTCAG', 'ACGTCAT'))
-    #print()
-
-    #print(mytrie.traverse())
-    #print("DELETING ACGTCAG")
-    #mytrie.delete_word('ACG')
-    #print(mytrie.traverse())
+    extendpairs()

@@ -5,6 +5,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Alphabet import IUPAC
+from mustache.misc import revcomp
 
 
 def write_sequences_to_fasta(sequences, fasta, names=None):
@@ -43,6 +44,54 @@ def write_flanks_to_fasta(flanks, fasta):
 
     with open(fasta, 'w') as output_handle:
         SeqIO.write(outseqs, output_handle, 'fasta')
+
+def write_flanks_to_paired_fasta(pairs, fasta_prefix):
+
+    fiveprime_outseqs = []
+    threeprime_outseqs = []
+    for p in pairs:
+        name5p = p['pair_id']
+        name3p = p['pair_id']
+        seq5p = p['seq_5p']
+        seq3p = p['seq_3p']
+
+        record5p = SeqRecord(Seq(seq5p, IUPAC.IUPACAmbiguousDNA),
+                           id=str(name5p), description=str(name5p)+'_5p')
+        record3p = SeqRecord(Seq(revcomp(seq3p), IUPAC.IUPACAmbiguousDNA),
+                             id=str(name3p), description=str(name3p)+'_3p')
+
+        fiveprime_outseqs.append(record5p)
+        threeprime_outseqs.append(record3p)
+
+    with open(fasta_prefix+'.R1.fasta', 'w') as output_handle:
+        SeqIO.write(fiveprime_outseqs, output_handle, 'fasta')
+
+    with open(fasta_prefix + '.R2.fasta', 'w') as output_handle:
+        SeqIO.write(threeprime_outseqs, output_handle, 'fasta')
+
+def write_flanks_to_unpaired_fasta(pairs, fasta_prefix):
+
+    fiveprime_outseqs = []
+    threeprime_outseqs = []
+    for p in pairs:
+        name5p = p['pair_id']+'_1'
+        name3p = p['pair_id']+'_2'
+        seq5p = p['seq_5p']
+        seq3p = p['seq_3p']
+
+        record5p = SeqRecord(Seq(seq5p, IUPAC.IUPACAmbiguousDNA),
+                           id=str(name5p), description=str(name5p)+'_5p')
+        record3p = SeqRecord(Seq(revcomp(seq3p), IUPAC.IUPACAmbiguousDNA),
+                             id=str(name3p), description=str(name3p)+'_3p')
+
+        fiveprime_outseqs.append(record5p)
+        threeprime_outseqs.append(record3p)
+
+    with open(fasta_prefix+'.fasta', 'w') as output_handle:
+        SeqIO.write(fiveprime_outseqs, output_handle, 'fasta')
+
+    with open(fasta_prefix + '.fasta', 'a') as output_handle:
+        SeqIO.write(threeprime_outseqs, output_handle, 'fasta')
 
 def write_panisa_flanks_to_fasta(flanks, fasta):
 

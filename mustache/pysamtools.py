@@ -2,7 +2,7 @@ import warnings
 warnings.filterwarnings("ignore")
 from mustache.sctools import *
 
-def get_softclipped_seqs_qualities(bam_file, contig, pos, orient, min_alignment_quality):
+def get_softclipped_seqs_qualities(bam_file, contig, pos, orient, min_alignment_quality, min_alignment_inner_length=21):
     softclip_count = 0
     softclipped_seqs = []
     softclipped_qualities = []
@@ -23,6 +23,9 @@ def get_softclipped_seqs_qualities(bam_file, contig, pos, orient, min_alignment_
             read = pr.alignment
 
             if read.mapping_quality < min_alignment_quality:
+                continue
+
+            if not read_meets_min_alignment_inner_length(read, min_alignment_inner_length):
                 continue
 
             if orient == 'L':
@@ -154,14 +157,53 @@ def get_left_unmapped_reads(bam_file, contig, left_site, get_quals=False, search
 def contig_length(bam, contig):
     return dict(zip(bam.references, bam.lengths))[contig]
 
-def count_runthrough_reads(bam, contig, site):
+def count_runthrough_reads(bam, contig, site, min_qual=20, min_alignment_inner_length=21):
 
     if site  < 0 or site >= contig_length(bam, contig):
         return 0
     else:
         count = 0
         for read in bam.fetch(contig, site, site+1):
+
+            if read.mapping_quality < min_qual:
+                continue
+
+            if not read_meets_min_alignment_inner_length(read, min_alignment_inner_length):
+                continue
+
             count += 1
+
+        return count
+
+def count_softclipped_reads(bam, contig, site, min_qual=20, min_alignment_inner_length=21):
+
+    if site  < 0 or site >= contig_length(bam, contig):
+        return 0
+    else:
+        count = 0
+        for read in bam.fetch(contig, site+1, site+2):
+
+            if read.mapping_quality < min_qual:
+                continue
+
+            if not read_meets_min_alignment_inner_length(read, min_alignment_inner_length):
+                continue
+
+            if is_left_softclipped_lenient_at_site(read, contig, site):
+                count += 1
+
+        for read in bam.fetch(contig, site - 1, site):
+
+            if read.mapping_quality < min_qual:
+                continue
+
+            if not read_meets_min_alignment_inner_length(read, min_alignment_inner_length):
+                continue
+
+            if is_right_softclipped_lenient_at_site(read, contig, site):
+                count += 1
+
+
         return count
 
 def get_query_qualities_ascii(read, bam):
@@ -170,3 +212,8 @@ def get_query_qualities_ascii(read, bam):
 def query_qualities_to_phred(quals):
     return [ord(q)-33 for q in quals]
 
+def get_perc_identity(read):
+    mismatches = len([c for c in read.get_tag('MD') if not c.isdigit()])
+    matches = read.query_alignment_length
+    identity = matches / (matches + mismatches)
+    return(identity)

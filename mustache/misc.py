@@ -1,6 +1,7 @@
 import warnings
 warnings.filterwarnings("ignore")
 import sys
+from scipy.stats import poisson
 
 
 def get_bam_contig_dict(bam_file):
@@ -11,7 +12,7 @@ def get_bam_contig_dict(bam_file):
 
 def revcomp(read):
     reversed_seq = ''
-    for l in reversed(read):
+    for l in reversed(read.upper()):
         if l == 'A':
             reversed_seq += 'T'
         elif l == 'T':
@@ -23,3 +24,11 @@ def revcomp(read):
         else:
             reversed_seq += l
     return reversed_seq
+
+def poisson_test_greater(x, mu):
+
+    return 1 - poisson.cdf(x-1, mu)
+
+
+if __name__ == "__main__":
+    print(poisson_test_greater(1, mu=1))

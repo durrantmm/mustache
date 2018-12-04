@@ -20,22 +20,6 @@ import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
-@click.command()
-@click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--output_file', '-o', default='mustache.findflanks.tsv', help="The output file to save the results.")
-@click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
-@click.option('--min_softclip_count', '-mincount', default=4, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
-@click.option('--min_count_consensus', '-mcc', default=2, help="When building the consensus sequence, stop building consensus if read count drops below this cutoff.")
-@click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
-@click.option('--min_softclip_ratio', '-minratio', default=0.1, help="For a softclipped site to be considered, the proportion of softclipped sites must not fall below this value. Below 0 and 0.1.")
-@click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + maximum direct repeat length.")
-def findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_consensus, min_alignment_quality, min_softclip_ratio, min_alignment_inner_length, output_file=None):
-    """A click access point for the findflanks module. This is used for creating the command line interface."""
-
-    _findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_consensus, min_alignment_quality, min_softclip_ratio,
-                min_alignment_inner_length, output_file)
-
-
 def get_softclipped_sites(bam_file, min_softclip_length=4, min_softclip_count=10, min_alignment_quality=20,
                           min_alignment_inner_length=21, min_softclip_ratio=0.1):
 
@@ -97,9 +81,8 @@ def get_softclipped_sites(bam_file, min_softclip_length=4, min_softclip_count=10
 
     soft_clips.query("meets_minlength == True & softclip_count > @min_softclip_count", inplace=True)
 
-    soft_clips = filter_lone_flanks(soft_clips)
-    logger.info("\tAfter removing lone softclips, filtering by minimum softclip length of %d, "
-                "and filtering by a minimum softclip count of %d, "
+    logger.info("\tAfter filtering by minimum softclip length of %d, "
+                "and a minimum softclip count of %d, "
                 "%d sites remaining..." % (min_softclip_length, min_softclip_count, soft_clips.shape[0]))
 
 
@@ -126,8 +109,8 @@ def get_softclipped_sites(bam_file, min_softclip_length=4, min_softclip_count=10
     return soft_clips
 
 
-def determine_flank_sequence(softclipped_sites, bam_file, min_softclip_length, min_softclip_count, min_count_consensus,
-                             min_alignment_quality, min_alignment_inner_length, min_softclip_ratio):
+def determine_flank_sequence(softclipped_sites, bam_file, min_softclip_length=4, min_softclip_count=10,
+                             min_alignment_quality=20, min_alignment_inner_length=21, min_softclip_ratio=0.1):
 
     column_names = ["contig", "pos", "orient", "softclip_count", "consensus_seq_length", "consensus_seq"]
 
@@ -147,12 +130,11 @@ def determine_flank_sequence(softclipped_sites, bam_file, min_softclip_length, m
             bam_file, contig, pos, orient, min_alignment_quality, min_alignment_inner_length)
 
         flanktrie = get_flank_sequence_trie(softclipped_seqs, softclipped_qualities)
-        flanktrie_traversal = flanktrie.traverse_all()
-        seq_dict = {seq[0]:[seq[1], seq[2]] for seq in flanktrie_traversal}
+        seq_dict = dict(flanktrie.traverse_both())
 
         seq_clusters = get_sequence_clusters(seq_dict)
 
-        consensus_seqs = get_cluster_consensus_seqs(seq_clusters, min_count_consensus)
+        consensus_seqs = get_cluster_consensus_seqs(seq_clusters)
 
         if orient == 'L':
             consensus_seqs = [seq[::-1] for seq in consensus_seqs]
@@ -253,17 +235,36 @@ def merge_cluster_counts(seq_clusters, flanktrie):
     return out
 
 
-def get_cluster_consensus_seqs(seq_clusters, min_count_consensus):
+def get_cluster_consensus_seqs(seq_clusters):
     consensus_seqs = list()
 
     for clust in seq_clusters:
         seqs = [seq for seq in clust]
-        quals = [clust[seq][0] for seq in clust]
-        counts = [clust[seq][1] for seq in clust]
+        quals = [clust[seq] for seq in clust]
 
-        mytrie = flanktrie.Trie()
-        mytrie.load_words(seqs, quals, counts)
-        consensus = mytrie.make_consensus_word(min_count_consensus)
+        max_len = max(map(len, seqs))
+
+        consensus = ''
+        for i in range(max_len):
+            bestbase = None
+            bestqual = -1
+
+            for j in range(len(seqs)):
+                word = seqs[j]
+                qual = quals[j]
+
+                if i >= len(word):
+                    continue
+
+                base = word[i]
+                q = qual[i]
+
+                if q > bestqual:
+                    bestqual = q
+                    bestbase = base
+
+            consensus += bestbase
+
 
         consensus_seqs.append(consensus)
 
@@ -283,62 +284,41 @@ def count_runthrough_reads(flanks, bam, min_qual, min_alignment_inner_length):
     return outflanks
 
 
-def filter_lone_flanks(flanks, max_direct_repeat_length=30):
-
-    column_names = ['contig']
-    keep_indices = set()
-    for index_5p, row in flanks.iterrows():
-
-        if row.orient != 'R':
-            continue
-
-        contig, pos_5p = row['contig'], row['pos']
-
-        min_pos = pos_5p - max_direct_repeat_length
-
-        candidate_pairs = flanks.query('contig == @contig & pos > @min_pos & pos < @pos_5p & orient == "L"')
-
-        if candidate_pairs.shape[0] > 0:
-            keep_indices.add(index_5p)
-            for index_3p, row in candidate_pairs.iterrows():
-                keep_indices.add(index_3p)
-
-    outpairs = flanks.ix[list(keep_indices)]
-    return outpairs
-
-
-def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_consensus, min_alignment_quality,
+def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality,
                 min_softclip_ratio, min_alignment_inner_length, output_file):
     bam = pysam.AlignmentFile(bamfile, 'rb')
 
     logger.info("Finding all softclipped sites...")
     softclipped_sites = get_softclipped_sites(bam, min_softclip_length, min_softclip_count, min_alignment_quality,
                                               min_alignment_inner_length, min_softclip_ratio)
+    logger.info("Determining consensus flank sequences from softclipped reads...")
+    flank_sequences = determine_flank_sequence(
+        softclipped_sites, bam, min_softclip_length, min_softclip_count, min_alignment_quality,
+        min_alignment_inner_length, min_softclip_ratio)
 
-    if softclipped_sites.shape[0] > 0:
-
-        logger.info("Determining consensus flank sequences from softclipped reads...")
-        flank_sequences = determine_flank_sequence(
-            softclipped_sites, bam, min_softclip_length, min_softclip_count, min_count_consensus,
-            min_alignment_quality, min_alignment_inner_length, min_softclip_ratio)
-
-        # Getting the final columns
-        flank_sequences = flank_sequences.loc[:,['contig', 'pos', 'orient', 'softclip_count', 'runthrough_count',
-                                                'consensus_seq']]
-
-        flank_sequences.reset_index(drop=True)
-        flank_sequences.index = flank_sequences.index+1
-        flank_sequences.index.name = 'flank_id'
-
-    else:
-        flank_sequences = pd.DataFrame(columns=['contig', 'pos', 'orient', 'softclip_count', 'runthrough_count', 'consensus_seq'])
-        flank_sequences.index.name = 'flank_id'
+    # Getting the final columns
+    flank_sequences = flank_sequences.loc[:,['contig', 'pos', 'orient', 'softclip_count', 'runthrough_count',
+                                            'consensus_seq']]
 
     if output_file:
         logger.info("Saving results to file %s" % output_file)
-        flank_sequences.to_csv(output_file, sep='\t')
+        flank_sequences.to_csv(output_file, sep='\t', index=False)
 
     return flank_sequences
+
+
+@click.command()
+@click.argument('bamfile', type=click.Path(exists=True))
+@click.option('--output_file', '-o', default='mustache.findflanks.tsv', help="The output file to save the results.")
+@click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
+@click.option('--min_softclip_count', '-mincount', default=10, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
+@click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
+@click.option('--min_softclip_ratio', '-minratio', default=0.1, help="For a softclipped site to be considered, the proportion of softclipped sites must not fall below this value. Below 0 and 0.1.")
+@click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + maximum direct repeat length.")
+def findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, min_softclip_ratio, min_alignment_inner_length, output_file=None):
+    _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, min_softclip_ratio,
+                min_alignment_inner_length, output_file)
+
 
 
 if __name__ == '__main__':

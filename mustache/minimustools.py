@@ -199,12 +199,12 @@ class MinimusAssembler:
                 softclip = left_softclipped_sequence_strict(read)
                 extension = softclip + current_contig[read.reference_start:]
             elif orient == 'R' and read.is_reverse:
-                if read.reference_start <= query_length:
+                if read.reference_end <= query_length:
                     return None
                 softclip = right_softclipped_sequence_strict(read)
                 extension = revcomp(current_contig[:read.reference_end] + softclip)
             elif orient == 'L' and (not read.is_reverse):
-                if read.reference_start <= query_length:
+                if read.reference_end <= query_length:
                     return None
                 softclip = right_softclipped_sequence_strict(read)
                 extension = current_contig[:read.reference_end] + softclip
@@ -215,5 +215,3 @@ class MinimusAssembler:
                 extension = revcomp(softclip + current_contig[read.reference_start:])
 
         return extension
-
-
