@@ -62,3 +62,5 @@ The final results will be found in the specified output directory.
 
     *.insertions_seqs.tsv - Detailed table of insertion sequences identified.
     *.insertions_seqs.fasta - A fasta file of all the identified insertion sequences.
+    
+[Install or update software](docs/tutorial.md)
