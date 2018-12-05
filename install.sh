@@ -11,8 +11,6 @@ conda env create -f envs/environment.yml
 echo "Entering new mustache environment..."
 source activate mustache
 
-cd ../../
-
 echo "Running pip install"
 pip install .
 source deactivate
