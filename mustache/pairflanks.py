@@ -73,7 +73,7 @@ def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
     return outpairs
 
 
-def check_pairs_for_ir(pairs, truncated_flank_length, ir_distance_from_end, tmp_dir, tmp_output_prefix='mustache', ):
+def check_pairs_for_ir(pairs, truncated_flank_length, ir_distance_from_end, tmp_dir, tmp_output_prefix='mustache'):
 
     has_ir_all = []
     ir_5p_all = []

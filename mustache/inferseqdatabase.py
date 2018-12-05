@@ -304,7 +304,7 @@ def handle_empty_pairsfile(pairs, output_file):
 @click.option('--output_file', '-o', default='mustache.inferseq_database.tsv', help="The output file to save the results.")
 @click.option('--keep-intermediate/--no-keep-intermediate', default=False, help="Keep intermediate files.")
 def inferseq_database(pairsfile, fasta_database, min_perc_identity,  max_internal_softclip_prop, max_edge_distance, output_file=None, keep_intermediate=False):
-    """A click access point for the inferseq_database module. This is used for creating the command line interface."""
+    """Infers the identity of an inserted sequence by aligning flank pairs to an database of known inserted elements."""
 
     _inferseq_database(pairsfile, fasta_database, min_perc_identity, max_internal_softclip_prop, max_edge_distance, output_file, keep_intermediate)
 

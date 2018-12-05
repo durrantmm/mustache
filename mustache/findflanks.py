@@ -325,7 +325,7 @@ def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_cons
         # Getting the final columns
         flank_sequences = flank_sequences.loc[:,['contig', 'pos', 'orient', 'softclip_count', 'runthrough_count',
                                                 'consensus_seq']]
-
+        flank_sequences = flank_sequences.sort_values(['contig', 'pos', 'orient'])
         flank_sequences.reset_index(drop=True)
         flank_sequences.index = flank_sequences.index+1
         flank_sequences.index.name = 'flank_id'
@@ -333,6 +333,7 @@ def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_cons
     else:
         flank_sequences = pd.DataFrame(columns=['contig', 'pos', 'orient', 'softclip_count', 'runthrough_count', 'consensus_seq'])
         flank_sequences.index.name = 'flank_id'
+
 
     if output_file:
         logger.info("Saving results to file %s" % output_file)

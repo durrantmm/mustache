@@ -416,7 +416,7 @@ def handle_empty_pairsfile(pairs, output_file):
 @click.option('--output_file', '-o', default='mustache.inferseq_assembly.tsv', help="The output file to save the results.")
 def inferseq_assembly(pairsfile, bamfile, inferseq_assembly, inferseq_reference, min_perc_identity,
                       max_internal_softclip_prop, max_inferseq_size, min_inferseq_size, keep_intermediate, output_file=None):
-    """A click access point for the inferseq_assembly module. This is used for creating the command line interface."""
+    """Infers the identity of an inserted sequence by aligning flank pairs to an assembled genome."""
 
     _inferseq_assembly(pairsfile, bamfile, inferseq_assembly, inferseq_reference, min_perc_identity,
                        max_internal_softclip_prop, max_inferseq_size, min_inferseq_size, keep_intermediate, output_file)

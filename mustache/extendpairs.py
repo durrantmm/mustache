@@ -135,6 +135,11 @@ def _extendpairs(pairsfile, bamfile, threads, output_file):
 @click.option('--output_file', '-o', default='mustache.extendpairs.tsv', help="The output file to save the results.")
 def extendpairs(pairsfile, bamfile, threads, output_file=None):
     _extendpairs(pairsfile, bamfile, threads, output_file)
+    """
+    Experimental. Extends the consensus flanks using a local assembly of paired end reads.
+    BAM file must be processed using the 'formatbam' command first.
+    Requires an installation of the AMOS sequence assembly software: http://amos.sourceforge.net/wiki/index.php/AMOS
+    """
 
 
 if __name__ == '__main__':

@@ -284,7 +284,10 @@ def handle_empty_pairsfile(pairs, output_file):
 @click.option('--output_file', '-o', default='mustache.inferseq_reference.tsv', help="The output file to save the results.")
 def inferseq_reference(pairsfile, inferseq_reference, min_perc_identity, max_internal_softclip_prop,
                        max_inferseq_size, min_inferseq_size, keep_intermediate, output_file=None):
-    """A click access point for the inferseq_reference module. This is used for creating the command line interface."""
+    """
+    Infers the identity of an inserted sequence by aligning flank pairs to a reference genome.
+    Ideal for re-sequencing experiments where evolved strains are closely related to the reference genome used.
+    """
 
     _inferseq_reference(pairsfile, inferseq_reference, min_perc_identity, max_internal_softclip_prop,
                         max_inferseq_size, min_inferseq_size, keep_intermediate, output_file)

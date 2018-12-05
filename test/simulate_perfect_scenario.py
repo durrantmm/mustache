@@ -15,10 +15,16 @@ from snakemake import shell
 @click.option('--read_length', default=100, help="The length of each read pair")
 @click.option('--fragment_length', default=500, help="The length of the fragment used.")
 @click.option('--step_size', default=1, help="Specify the step size between fragments.")
-def main(output_prefix, inseq_length, genome_length, direct_repeat_length, read_length, fragment_length, step_size):
+@click.option('--add_insert_elsewhere_to_reference', default=True, help="Decide if the insert should also exist in the reference.")
+def main(output_prefix, inseq_length, genome_length, direct_repeat_length, read_length, fragment_length, step_size, add_insert_elsewhere_to_reference):
 
     inseq = generate_random_sequence(inseq_length)
     ancestral_genome = generate_random_sequence(genome_length)
+    if add_insert_elsewhere_to_reference:
+        
+        ancestral_genome = add_inseq_to_reference(inseq, ancestral_genome)
+
+    
 
     inseq_genome = insert_sequence_center(ancestral_genome, inseq, direct_repeat_length)
 
@@ -122,9 +128,15 @@ def write_reads_to_fastq(reads, out_prefix, read_prefix):
     out_forward.close()
     out_reverse.close()
 
+def add_inseq_to_reference(inseq, reference, pos=0.25):
+    reflen=len(reference)
+    insert_pos=int(len(reference)*pos)
+    reference = reference[:insert_pos] + inseq + reference[insert_pos:]
+    return reference
+    
 def combine_fastq_files(fastq_prefix1, fastq_prefix2, combined_prefix):
     shell("cat %s.R1.fq %s.R1.fq > %s.R1.fq" % (fastq_prefix1, fastq_prefix2, combined_prefix))
-    shell("cat %s.R2.fq %s.R2.fq > %s.R2}.fq" % (fastq_prefix1, fastq_prefix2, combined_prefix))
+    shell("cat %s.R2.fq %s.R2.fq > %s.R2.fq" % (fastq_prefix1, fastq_prefix2, combined_prefix))
 
 if __name__ == '__main__':
     main()
