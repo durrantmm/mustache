@@ -4,7 +4,7 @@
 
 
 
-[Detailed user manual](../manual.md)  
+[Detailed user manual](manual.md)  
 
 
 

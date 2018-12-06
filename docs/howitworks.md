@@ -22,14 +22,14 @@ It does NOT perform the following steps:
 
 
 ## Limitations
-Identifying large structural variants from short-read sequencing data is always a quesiton of inference. 
-The insertions identified in this pipeline are no different, but we try to increase our sensitivity by combining several 
+Identifying large structural variants from short-read sequencing data is always inferential task. 
+The insertions identified in this pipeline are often inferred, but we try to increase our sensitivity by combining several 
 different inference approaches. However, there are limitations that should be taken into account with this analysis, such as:
 
 1. We only identify those insertions that occur within the reference genome used.
 2. We usually cannot know the full identity of the inserted sequence if it greatly exceeds the libraries read length and fragment size. 
 We can only know the identity of its flanks.
 
+For more detailed information on how mustache works, see the [tutorial](tutorial.md) and the [manual](manual.md).
 
-
-[NEXT: Install or update software](docs/install.md)
+[NEXT: Install or update software](install.md)
