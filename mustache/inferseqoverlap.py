@@ -179,20 +179,6 @@ def merge_overlapping_sequences(start_seq, overlap_seq1, overlap_seq2, end_seq):
 
     return(merged_seq)
 
-@click.command()
-@click.argument('pairsfile', type=click.Path(exists=True))
-@click.option('--min_overlap_score', '-minscore', default=10, help="The minimum overlap score to keep inferred sequence.")
-@click.option('--min_overlap_perc_identity', '-min_overlap_perc_identity', default=0.9, help="The minimum overlap percent identity to keep inferred sequence")
-@click.option('--output_file', '-o', default='mustache.inferseq_overlap.tsv', help="The output file to save the results.")
-def inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, output_file=None):
-    """
-    Infers the identity of an inserted sequence by checking if they overlap with one another.
-    Only identifies an inserted sequence if the consensus flanks are long enough to span the entire insertion.
-    """
-
-    _inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, output_file)
-
-
 
 if __name__ == '__main__':
     inferseq_overlap()

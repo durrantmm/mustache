@@ -20,7 +20,7 @@ def get_flank_pairs(flanks, tmp_dir, tmp_output_prefix=None, max_direct_repeat_l
 
     logger.info("Finding all flank pairs within %d bases of each other ..." % max_direct_repeat_length)
     pairs = pair_all_nearby_flanks(flanks, max_direct_repeat_length)
-    logger.info("Finding all inverted repeats in %d candidate pairs..." % pairs.shape[0])
+    logger.info("Finding all inverted repeats at termini in %d candidate pairs..." % pairs.shape[0])
     pairs = check_pairs_for_ir(pairs, truncated_flank_length, ir_distance_from_end, tmp_dir, tmp_output_prefix)
     logger.info("Filtering pairs according to existence of inverted repeats, flank length difference, and read count difference...")
     filtered_pairs = filter_pairs(pairs)
@@ -32,9 +32,6 @@ def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
 
     column_names = ['contig', 'index_5p', 'index_3p', 'pos_5p', 'pos_3p', 'softclip_count_5p', 'softclip_count_3p',
                     'runthrough_count_5p', 'runthrough_count_3p']
-
-    if 'extended' in list(flanks.loc[0,:].keys()):
-        column_names += ['extended_5p', 'extended_3p']
 
     column_names += ['seq_5p', 'seq_3p']
 
@@ -48,9 +45,6 @@ def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
         contig, pos_5p = row['contig'], row['pos']
         softclip_count_5p, runthrough_count_5p, seq_5p = row['softclip_count'], row['runthrough_count'], row['consensus_seq']
 
-        if 'extended' in list(row.keys()):
-            extended_5p = row['extended']
-
         min_pos = pos_5p - max_direct_repeat_length
 
         candidate_pairs = flanks.query('contig == @contig & pos > @min_pos & pos < @pos_5p & orient == "L"')
@@ -58,13 +52,10 @@ def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
         for index_3p, row2 in candidate_pairs.iterrows():
             pos_3p, softclip_count_3p, runthrough_count_3p, seq_3p = row2['pos'], row2['softclip_count'], \
                                                                      row2['runthrough_count'], row2['consensus_seq']
-            if 'extended' in list(row2.keys()):
-                extended_3p = row2['extended']
 
             out = [contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, runthrough_count_5p, runthrough_count_3p]
 
-            if 'extended' in list(row2.keys()):
-                out += [extended_5p, extended_3p]
+
 
             out += [seq_5p, seq_3p]
             outpairs[len(outpairs)] =  out
@@ -80,12 +71,9 @@ def check_pairs_for_ir(pairs, truncated_flank_length, ir_distance_from_end, tmp_
     ir_3p_all = []
 
     for index, row in pairs.iterrows():
-        if 'extended_5p' in list(row.keys()):
-            contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, \
-            runthrough_count_5p, runthrough_count_3p, extended_5p, extended_3p, seq_5p, seq_3p = row
-        else:
-            contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, \
-            runthrough_count_5p, runthrough_count_3p, seq_5p, seq_3p = row
+
+        contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, \
+        runthrough_count_5p, runthrough_count_3p, seq_5p, seq_3p = row
 
         trunc_seq_5p = truncate_sequence(seq_5p, truncated_flank_length, orient='R')
         trunc_seq_3p = truncate_sequence(seq_3p, truncated_flank_length, orient='L')
@@ -154,7 +142,7 @@ def filter_pairs(pairs):
     sorted_pairs.loc[:, 'keep_pair'] = np.array(keep_row)
     filtered_pairs = sorted_pairs.query("keep_pair == True").loc[:,
                      ['contig', 'pos_5p', 'pos_3p', 'softclip_count_5p', 'softclip_count_3p', 'runthrough_count_5p',
-                      'runthrough_count_3p', 'extended_5p', 'extended_3p', 'has_IR', 'IR_length', 'IR_5p', 'IR_3p',
+                      'runthrough_count_3p', 'has_IR', 'IR_length', 'IR_5p', 'IR_3p',
                       'seq_5p', 'seq_3p']].sort_values(['contig', 'pos_5p', 'pos_3p'])
 
     return filtered_pairs
@@ -197,7 +185,6 @@ def get_read_direct_repeats(positions, genome_dict, bamfile, target_region_size=
     bam = pysam.AlignmentFile(bamfile, 'rb')
 
     direct_repeats = []
-    target_regions = []
     for index, row in positions.iterrows():
         contig, start, end = row['contig'], row['pos_3p'], row['pos_5p']
 
@@ -233,10 +220,8 @@ def get_read_direct_repeats(positions, genome_dict, bamfile, target_region_size=
         consensus_direct_repeat = consensus_target_region[target_region_positions.index((start+1)):target_region_positions.index(end)]
 
         direct_repeats.append(consensus_direct_repeat)
-        target_regions.append(consensus_target_region)
 
     positions['direct_repeat_reads_consensus'] = direct_repeats
-    positions['target_region_reads_consensus'] = target_regions
 
     return positions
 
@@ -268,32 +253,14 @@ def get_reference_direct_repeats(flank_pairs, genome_dict, target_region_size=50
     positions = flank_pairs.loc[:, ['contig', 'pos_5p', 'pos_3p']].drop_duplicates().reset_index(drop=True)
 
     direct_repeats = []
-    target_regions = []
     for index, row in positions.iterrows():
         contig, start, end = row['contig'], row['pos_3p'], row['pos_5p']
 
         direct_repeat = genome_dict[contig][(start+1):end]
-
-        direct_repeat_center = round((end + start) / 2)
-        expanded_start = int(direct_repeat_center - (target_region_size/2))
-        expanded_end = int(direct_repeat_center + (target_region_size / 2))
-
-        add_start_n = 0
-        add_end_n = 0
-        if expanded_start < 0:
-            add_start_n = abs(expanded_start)
-            expanded_start = 0
-        if expanded_end > len(genome_dict[contig]):
-            add_end_n = expanded_end - len(genome_dict[contig])
-            expanded_end = len(genome_dict[contig])
-
-        target_region = 'N'*add_start_n + genome_dict[contig][expanded_start:expanded_end] + 'N'*add_end_n
-
         direct_repeats.append(''.join(direct_repeat))
-        target_regions.append(''.join(target_region))
+
 
     positions['direct_repeat_reference'] = direct_repeats
-    positions['target_region_reference'] = target_regions
     return positions
 
 
@@ -306,9 +273,9 @@ def _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_fi
         logger.info("No flanks found in the input file...")
         flank_pairs = pd.DataFrame(
             columns=['pair_id', 'contig', 'pos_5p', 'pos_3p', 'softclip_count_5p', 'softclip_count_3p',
-                     'runthrough_count_5p', 'runthrough_count_3p', 'extended_5p', 'extended_3p', 'has_IR', 'IR_length',
-                     'IR_5p', 'IR_3p', 'seq_5p', 'seq_3p', 'direct_repeat_reference', 'target_region_reference',
-                     'direct_repeat_reads_consensus','target_region_reads_consensus'])
+                     'runthrough_count_5p', 'runthrough_count_3p', 'has_IR', 'IR_length',
+                     'IR_5p', 'IR_3p', 'seq_5p', 'seq_3p', 'direct_repeat_reference',
+                     'direct_repeat_reads_consensus'])
 
         if output_file:
             flank_pairs.to_csv(output_file, sep='\t', index=False)
@@ -318,7 +285,8 @@ def _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_fi
 
         flank_pairs = get_flank_pairs(flanks, dirname(output_file), tmp_output_prefix=tmp_output_prefix,
                                       max_direct_repeat_length=max_direct_repeat_length)
-        logger.info("Identified %d flank pairs with inverted repeats..." % flank_pairs.shape[0])
+        logger.info("Identified %d flank pairs in total..." % flank_pairs.shape[0])
+        logger.info("Identified %d flank pairs with inverted repeats..." % flank_pairs.query('has_IR==True').shape[0])
         logger.info("Getting direct repeats and surrounding genomic region...")
         flank_pairs = get_direct_repeats(flank_pairs, bamfile, genome)
 
@@ -330,32 +298,3 @@ def _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_fi
             flank_pairs.to_csv(output_file, sep='\t')
 
         return flank_pairs
-
-@click.command()
-@click.argument('flanksfile', type=click.Path(exists=True))
-@click.argument('bamfile', type=click.Path(exists=True))
-@click.argument('genome', type=click.Path(exists=True))
-@click.option('--max_direct_repeat_length', '-maxdr', default=20, help="The maximum length of a direct repeat to consider a pair.")
-@click.option('--output_file', '-o', default='mustache.pairflanks.tsv', help="The output file to save the results.")
-def pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_file=None):
-    _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_file)
-
-
-if __name__ == '__main__':
-    pairflanks()
-    #seqs = ['ACGCA', 'ACG', 'ACGC', 'ACGT', 'ACGTC', 'ACGTCA', 'ACGTCAT', 'ACGTCAG', 'ACGTCAT']
-    #clusters = get_sequence_clusters(seqs)
-
-    #mytrie = flanktrie.Trie()
-    #for s in seqs:
-    #    mytrie.add(s)
-
-    #print(mytrie.traverse())
-    #print(mytrie.calc_total_shared_words('ACGTCAG', 'ACGTCAT'))
-    #print(mytrie.calc_total_unique_shared_words('ACGTCAG', 'ACGTCAT'))
-    #print()
-
-    #print(mytrie.traverse())
-    #print("DELETING ACGTCAG")
-    #mytrie.delete_word('ACG')
-    #print(mytrie.traverse())

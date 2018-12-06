@@ -2,3 +2,9 @@
 
 
 
+
+
+[Detailed user manual](../manual.md)  
+
+
+

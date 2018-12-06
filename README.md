@@ -7,4 +7,5 @@ Follow the links below to learn more.
 ## Table of Contents
 1. [How it works](docs/howitworks.md)  
 2. [Install or update software](docs/install.md)  
-3. [Step-by-step tutorial](docs/tutorial.md)  
+3. [Step-by-step tutorial](docs/tutorial.md)
+4. [Detailed user manual](docs/manual.md)

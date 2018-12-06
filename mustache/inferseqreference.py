@@ -272,27 +272,5 @@ def handle_empty_pairsfile(pairs, output_file):
         sys.exit()
 
 
-@click.command()
-@click.argument('pairsfile', type=click.Path(exists=True))
-@click.argument('inferseq_reference', type=click.Path(exists=True))
-@click.option('--min_perc_identity', '-minident', default=0.9, help="Only consider matches with a percentage identity above this threshold")
-@click.option('--max_internal_softclip_prop', '-maxclip', default=0.05, help="Do not consider matches with internal softclipped ends exceeding this proportion of the total read")
-@click.option('--max_inferseq_size', '-maxsize', default=500000, help="Do not consider inferred sequences over this size.")
-@click.option('--min_inferseq_size', '-minsize', default=1, help="Do not consider inferred sequences below this size.")
-@click.option('--output_file', '-o', default='mustache.inferseq_database.tsv', help="The output file to save the results.")
-@click.option('--keep-intermediate/--no-keep-intermediate', default=False, help="Keep intermediate files.")
-@click.option('--output_file', '-o', default='mustache.inferseq_reference.tsv', help="The output file to save the results.")
-def inferseq_reference(pairsfile, inferseq_reference, min_perc_identity, max_internal_softclip_prop,
-                       max_inferseq_size, min_inferseq_size, keep_intermediate, output_file=None):
-    """
-    Infers the identity of an inserted sequence by aligning flank pairs to a reference genome.
-    Ideal for re-sequencing experiments where evolved strains are closely related to the reference genome used.
-    """
-
-    _inferseq_reference(pairsfile, inferseq_reference, min_perc_identity, max_internal_softclip_prop,
-                        max_inferseq_size, min_inferseq_size, keep_intermediate, output_file)
-
-
-
 if __name__ == '__main__':
     inferseq_reference()

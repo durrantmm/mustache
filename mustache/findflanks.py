@@ -20,22 +20,6 @@ import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
-@click.command()
-@click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--output_file', '-o', default='mustache.findflanks.tsv', help="The output file to save the results.")
-@click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
-@click.option('--min_softclip_count', '-mincount', default=4, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
-@click.option('--min_count_consensus', '-mcc', default=2, help="When building the consensus sequence, stop building consensus if read count drops below this cutoff.")
-@click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
-@click.option('--min_softclip_ratio', '-minratio', default=0.1, help="For a softclipped site to be considered, the proportion of softclipped sites must not fall below this value. Below 0 and 0.1.")
-@click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + maximum direct repeat length.")
-def findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_consensus, min_alignment_quality, min_softclip_ratio, min_alignment_inner_length, output_file=None):
-    """A click access point for the findflanks module. This is used for creating the command line interface."""
-
-    _findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_consensus, min_alignment_quality, min_softclip_ratio,
-                min_alignment_inner_length, output_file)
-
-
 def get_softclipped_sites(bam_file, min_softclip_length=4, min_softclip_count=10, min_alignment_quality=20,
                           min_alignment_inner_length=21, min_softclip_ratio=0.1):
 

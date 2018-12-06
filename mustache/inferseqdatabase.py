@@ -295,20 +295,5 @@ def handle_empty_pairsfile(pairs, output_file):
         sys.exit()
 
 
-@click.command()
-@click.argument('pairsfile', type=click.Path(exists=True))
-@click.argument('fasta_database', type=click.Path(exists=True))
-@click.option('--min_perc_identity', '-minident', default=0.9, help="Only consider matches with a percentage identity above this threshold")
-@click.option('--max_internal_softclip_prop', '-maxclip', default=0.05, help="Do not consider matches with internal softclipped ends exceeding this proportion of the total read")
-@click.option('--max_edge_distance', '-maxedgedist', default=10, help="Reads must align within this number of bases from the edge of an element to be considered.")
-@click.option('--output_file', '-o', default='mustache.inferseq_database.tsv', help="The output file to save the results.")
-@click.option('--keep-intermediate/--no-keep-intermediate', default=False, help="Keep intermediate files.")
-def inferseq_database(pairsfile, fasta_database, min_perc_identity,  max_internal_softclip_prop, max_edge_distance, output_file=None, keep_intermediate=False):
-    """Infers the identity of an inserted sequence by aligning flank pairs to an database of known inserted elements."""
-
-    _inferseq_database(pairsfile, fasta_database, min_perc_identity, max_internal_softclip_prop, max_edge_distance, output_file, keep_intermediate)
-
-
-
 if __name__ == '__main__':
     inferseq_database()

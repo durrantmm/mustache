@@ -72,15 +72,5 @@ def count_softclipped_reads(pairs, bam, min_qual, min_alignment_inner_length):
 
     return outpairs
 
-@click.command()
-@click.argument('pairsfile', type=click.Path(exists=True))
-@click.argument('bamfile', type=click.Path(exists=True))
-@click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
-@click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + maximum direct repeat length.")
-@click.option('--output_file', '-o', default='mustache.recall.tsv', help="The output file to save results to...")
-def recall(pairsfile, bamfile, min_alignment_quality, min_alignment_inner_length, output_file):
-    _recall(pairsfile, bamfile, min_alignment_quality, min_alignment_inner_length, output_file)
-
-
 if __name__ == '__main__':
     recall()

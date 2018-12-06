@@ -58,13 +58,7 @@ def format_for_mustache(in_sam, out_bam, read_format='rb', delete_in_sam=False):
     else:
         return None
 
-
-@click.command()
-@click.argument('in_sam', type=click.Path(exists=True))
-@click.argument('out_bam')
-@click.option('--single-end', is_flag=True, default=False, help="Add this flag for single-end files")
-@click.option('--keep-tmp-files', is_flag=True, default=False, help="Add this flag if you want to keep intermediate temporary files")
-def formatbam(in_sam, out_bam, single_end, keep_tmp_files):
+def _formatbam(in_sam, out_bam, single_end, keep_tmp_files):
 
     logger.info("Removing secondary alignments...")
     tmp_cleaned_bam = join(dirname(out_bam), '.'.join(basename(out_bam).split('.')[:-1]) + '.cleaned.bam.tmp')
@@ -84,7 +78,6 @@ def formatbam(in_sam, out_bam, single_end, keep_tmp_files):
         logger.info("SAM file successfully reformatted...\n")
     else:
         tmp_formatted_bam = tmp_cleaned_bam
-
 
     logger.info("Sorting the BAM file by chromosomal location...")
     sorted_bam = samtools.sort_coordinate(tmp_formatted_bam, out_bam, delete_in_bam=not keep_tmp_files)
