@@ -32,7 +32,7 @@ Once complete, you can check to see if mustache installed properly by simply typ
 This can then be called from anywhere on the file system while in the `mustache` conda environment.
 
 
-[NEXT: Install or update software](docs/tutorial.md)
+[NEXT: Install or update software](tutorial.md)
 
 
 
