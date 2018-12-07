@@ -216,12 +216,10 @@ def filter_context_pairs(pairs, max_internal_softclip_prop):
         for read1, read2 in pairs[pair_id]:
 
             if sctools.is_right_softclipped_strict(read1) and \
-                read1.reference_end < read2.reference_end and \
                 sctools.right_softclip_proportion(read1) > max_internal_softclip_prop:
                 continue
 
             if sctools.is_left_softclipped_strict(read2) and \
-                read2.reference_start > read1.reference_start and \
                 sctools.left_softclip_proportion(read2) > max_internal_softclip_prop:
                 continue
 
