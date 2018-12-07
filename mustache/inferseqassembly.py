@@ -56,7 +56,8 @@ def _inferseq_assembly(pairsfile, bamfile, inferseq_assembly, inferseq_reference
     sequences_inferred_from_assembly_without_context = infer_sequences_without_context(assembly_outbam, assembly_genome_dict,
                                                                                        min_perc_identity, max_internal_softclip_prop)
 
-    shell('rm {fasta_prefix}* {outbam}*'.format(fasta_prefix=assembly_flanks_fasta_prefix, outbam=assembly_outbam))
+    if not keep_intermediate:
+        shell('rm {fasta_prefix}* {outbam}*'.format(fasta_prefix=assembly_flanks_fasta_prefix, outbam=assembly_outbam))
 
     method1 = make_dataframe(sequences_inferred_from_assembly_with_context, method='inferred_assembly_with_context')
     method2 = make_dataframe(sequences_inferred_from_assembly_without_context, method='inferred_assembly_without_context')
@@ -132,6 +133,7 @@ def prefilter_context_reads(bam, genome_dict, min_perc_identity):
         if not read.is_reverse:
             if sctools.is_left_softclipped_strict(read):
                 continue
+
         if read.is_reverse:
             if sctools.is_right_softclipped_strict(read):
                 continue
@@ -142,6 +144,7 @@ def prefilter_context_reads(bam, genome_dict, min_perc_identity):
 
     return keep_reads
 
+
 def prefilter_nocontext_reads(bam, genome_dict, min_perc_identity):
     keep_reads = defaultdict(lambda: defaultdict(list))
 
@@ -150,9 +153,11 @@ def prefilter_nocontext_reads(bam, genome_dict, min_perc_identity):
             continue
         if pysamtools.get_perc_identity(read) < min_perc_identity:
             continue
+
         if not read.is_reverse:
             if sctools.is_left_softclipped_strict(read) and sctools.left_softclipped_position(read) >= 0:
                 continue
+
         if read.is_reverse:
             if sctools.is_right_softclipped_strict(read) and sctools.right_softclipped_position(read) < len(genome_dict[read.reference_name]):
                 continue
@@ -161,6 +166,7 @@ def prefilter_nocontext_reads(bam, genome_dict, min_perc_identity):
         keep_reads[pair_id][read.reference_name].append(read)
 
     return keep_reads
+
 
 def get_pairs(reads):
 
@@ -183,35 +189,48 @@ def filter_nocontext_pairs(pairs, max_internal_softclip_prop):
     keep_pairs = defaultdict(list)
     for pair_id in pairs:
         for read1, read2 in pairs[pair_id]:
-            if sctools.is_right_softclipped_strict(read1) and read1.reference_end <= read2.reference_start and \
-                len(sctools.right_softclipped_sequence_strict(read1))/len(read1.query_sequence) > max_internal_softclip_prop:
+
+            if sctools.is_right_softclipped_strict(read1) and \
+                read1.reference_end < read2.reference_end and \
+                sctools.right_softclip_proportion(read1) > max_internal_softclip_prop:
                 continue
-            if sctools.is_left_softclipped_strict(read1) and read1.reference_end <= read2.reference_start and \
-                len(sctools.left_softclipped_sequence_strict(read1))/len(read1.query_sequence) > max_internal_softclip_prop:
+
+            if sctools.is_left_softclipped_strict(read2) and \
+                read2.reference_start > read1.reference_start and \
+                sctools.left_softclip_proportion(read2) > max_internal_softclip_prop:
                 continue
+
             keep_pairs[pair_id].append((read1, read2))
 
     return keep_pairs
+
 
 def filter_context_pairs(pairs, max_internal_softclip_prop):
     keep_pairs = defaultdict(list)
     for pair_id in pairs:
         for read1, read2 in pairs[pair_id]:
-            if sctools.is_right_softclipped_strict(read1) and read1.reference_end <= read2.reference_start and \
-                len(sctools.right_softclipped_sequence_strict(read1))/len(read1.query_sequence) > max_internal_softclip_prop:
+
+            if sctools.is_right_softclipped_strict(read1) and \
+                read1.reference_end < read2.reference_end and \
+                sctools.right_softclip_proportion(read1) > max_internal_softclip_prop:
                 continue
-            if sctools.is_left_softclipped_strict(read1) and read1.reference_end <= read2.reference_start and \
-                len(sctools.left_softclipped_sequence_strict(read1))/len(read1.query_sequence) > max_internal_softclip_prop:
+
+            if sctools.is_left_softclipped_strict(read2) and \
+                read2.reference_start > read1.reference_start and \
+                sctools.left_softclip_proportion(read2) > max_internal_softclip_prop:
                 continue
+
             keep_pairs[pair_id].append((read1, read2))
 
     return keep_pairs
+
 
 def get_start(read):
     if read.is_reverse:
         return read.reference_end
     else:
         return read.reference_start
+
 
 def keep_best_alignment_score(reads):
     keep_reads = []
@@ -229,34 +248,6 @@ def keep_best_alignment_score(reads):
 
     return keep_reads
 
-def remove_overlapping_reads(reads):
-    exclude_reads = set()
-    for i in range(len(reads)):
-        for j in range(i, len(reads)):
-            if i == j:
-                continue
-
-            pair1 = reads[i]
-            pair2 = reads[j]
-
-            if read_pairs_overlap(pair1, pair2):
-                pair1_length = get_read_length(pair1)
-                pair2_length = get_read_length(pair2)
-                if pair1_length > pair2_length:
-                    exclude_reads.add(i)
-                else:
-                    exclude_reads.add(j)
-
-    keep_reads = [reads[i] for i in range(len(reads)) if i not in exclude_reads]
-
-    return keep_reads
-
-def read_pairs_overlap(pair1, pair2):
-    return pair1[0].reference_start <= pair2[1].reference_end and pair2[0].reference_start <= pair1[1].reference_end
-
-
-def get_read_length(pair1):
-    return pair1[1].reference_end - pair1[0].reference_start
 
 def write_flanks_to_align_to_assembly(pairs, bam, genome_dict, tmp_dir):
     fasta_prefix = join(tmp_dir, 'mustache.inferseq_assembly.' + str(randint(0, 1e20)))
@@ -402,8 +393,3 @@ def handle_empty_pairsfile(pairs, output_file):
         outfile.to_csv(output_file, sep='\t', index=False)
         logger.info("Empty pairs file, exiting...")
         sys.exit()
-
-
-
-if __name__ == '__main__':
-    inferseq_assembly()

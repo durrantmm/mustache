@@ -1,7 +1,6 @@
 import sys
 import warnings
 warnings.filterwarnings("ignore")
-import click
 import pandas as pd
 from mustache import fastatools
 from mustache import bowtie2tools
@@ -117,6 +116,7 @@ def prefilter_nocontext_reads(bam, genome_dict, min_perc_identity):
 
     return keep_reads
 
+
 def get_pairs(reads):
 
     keep_pairs = defaultdict(list)
@@ -138,15 +138,21 @@ def filter_nocontext_pairs(pairs, max_internal_softclip_prop):
     keep_pairs = defaultdict(list)
     for pair_id in pairs:
         for read1, read2 in pairs[pair_id]:
-            if sctools.is_right_softclipped_strict(read1) and read1.reference_end <= read2.reference_start and \
-                len(sctools.right_softclipped_sequence_strict(read1))/len(read1.query_sequence) > max_internal_softclip_prop:
+
+            if sctools.is_right_softclipped_strict(read1) and \
+                read1.reference_end < read2.reference_end and \
+                sctools.right_softclip_proportion(read1) > max_internal_softclip_prop:
                 continue
-            if sctools.is_left_softclipped_strict(read1) and read1.reference_end <= read2.reference_start and \
-                len(sctools.left_softclipped_sequence_strict(read1))/len(read1.query_sequence) > max_internal_softclip_prop:
+
+            if sctools.is_left_softclipped_strict(read2) and \
+                read2.reference_start > read1.reference_start and \
+                sctools.left_softclip_proportion(read2) > max_internal_softclip_prop:
                 continue
+
             keep_pairs[pair_id].append((read1, read2))
 
     return keep_pairs
+
 
 def get_start(read):
     if read.is_reverse:
@@ -170,35 +176,6 @@ def keep_best_alignment_score(reads):
             keep_reads.append((read1, read2))
 
     return keep_reads
-
-def remove_overlapping_reads(reads):
-    exclude_reads = set()
-    for i in range(len(reads)):
-        for j in range(i, len(reads)):
-            if i == j:
-                continue
-
-            pair1 = reads[i]
-            pair2 = reads[j]
-
-            if read_pairs_overlap(pair1, pair2):
-                pair1_length = get_read_length(pair1)
-                pair2_length = get_read_length(pair2)
-                if pair1_length > pair2_length:
-                    exclude_reads.add(i)
-                else:
-                    exclude_reads.add(j)
-
-    keep_reads = [reads[i] for i in range(len(reads)) if i not in exclude_reads]
-
-    return keep_reads
-
-def read_pairs_overlap(pair1, pair2):
-    return pair1[0].reference_start <= pair2[1].reference_end and pair2[0].reference_start <= pair1[1].reference_end
-
-
-def get_read_length(pair1):
-    return pair1[1].reference_end - pair1[0].reference_start
 
 
 def write_flanks_to_align_to_reference(pairs, tmp_dir):

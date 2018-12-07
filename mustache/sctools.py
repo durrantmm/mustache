@@ -170,3 +170,9 @@ def read_meets_min_alignment_inner_length(read, min_alignment_inner_length):
         return True
     else:
         return False
+
+def right_softclip_proportion(read):
+    return len(right_softclipped_sequence_strict(read)) / len(read.query_sequence)
+
+def left_softclip_proportion(read):
+    return len(left_softclipped_sequence_strict(read)) / len(read.query_sequence)
