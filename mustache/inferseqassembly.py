@@ -155,12 +155,17 @@ def prefilter_nocontext_reads(bam, genome_dict, min_perc_identity):
             continue
 
         if not read.is_reverse:
-            if sctools.is_left_softclipped_strict(read) and sctools.left_softclipped_position(read) >= 0:
+            if sctools.is_left_softclipped_strict(read) and \
+                sctools.get_left_softclip_length(read) > 1 and \
+                sctools.left_softclipped_position(read) >= 0:
                 continue
 
         if read.is_reverse:
-            if sctools.is_right_softclipped_strict(read) and sctools.right_softclipped_position(read) < len(genome_dict[read.reference_name]):
+            if sctools.is_right_softclipped_strict(read) and \
+                sctools.get_right_softclip_length(read) > 1 and \
+                sctools.right_softclipped_position(read) < len(genome_dict[read.reference_name]):
                 continue
+
         pair_id, flank_id = read.query_name.split('_')
 
         keep_reads[pair_id][read.reference_name].append(read)

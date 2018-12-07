@@ -1,7 +1,6 @@
 import sys
 import warnings
 warnings.filterwarnings("ignore")
-import click
 import pandas as pd
 from mustache import fastatools
 from mustache import bowtie2tools
@@ -69,6 +68,7 @@ def _inferseq_database(pairsfile, fasta_database, min_perc_identity, max_interna
         output_file = 'mustache.inferseq_database.tsv'
     all_inferred_results.to_csv(output_file, sep='\t', index=False)
 
+
 def get_inferred_sequences(pairs, genome_dict, add_softclipped_bases=False):
 
     inferred_sequences = []
@@ -87,6 +87,7 @@ def get_inferred_sequences(pairs, genome_dict, add_softclipped_bases=False):
 
     return inferred_sequences
 
+
 def make_dataframe(inferred_sequences, method=None):
     outdict = OrderedDict([("pair_id", []), ("method", []), ("loc", []),
                            ("inferred_seq_length", []), ("inferred_seq", [])])
@@ -101,6 +102,7 @@ def make_dataframe(inferred_sequences, method=None):
     outdf = pd.DataFrame.from_dict(outdict)
 
     return outdf
+
 
 def infer_sequences_database(bam_file, database_dict, min_perc_identity, max_internal_softclip_prop, max_edge_distance):
     bam = pysam.AlignmentFile(bam_file, 'rb')
@@ -120,11 +122,13 @@ def infer_sequences_database(bam_file, database_dict, min_perc_identity, max_int
 
     return inferred_sequences
 
+
 def count_total_pairs(pairs):
     count = 0
     for pair in pairs:
         count += len(pairs[pair])
     return count
+
 
 def prefilter_reads(bam, database_dict, min_perc_identity, max_internal_softclip_prop, max_edge_distance):
     keep_reads = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
@@ -137,29 +141,30 @@ def prefilter_reads(bam, database_dict, min_perc_identity, max_internal_softclip
 
         if not read.is_reverse:
 
-            if sctools.is_right_softclipped_strict(read) and sctools.right_softclipped_position(read) < len(
-                    database_dict[read.reference_name]) and len(sctools.right_softclipped_sequence_strict(read))/\
-                    len(read.query_sequence) > max_internal_softclip_prop:
+            if sctools.is_right_softclipped_strict(read) and \
+                sctools.right_softclipped_position(read) < len(database_dict[read.reference_name]) and \
+                sctools.right_softclip_proportion(read) > max_internal_softclip_prop:
                 continue
 
             elif read.reference_start > max_edge_distance:
                 continue
 
-            elif sctools.is_left_softclipped_strict(read) and len(
-                    sctools.left_softclipped_sequence_strict(read)) > max_edge_distance:
+            elif sctools.is_left_softclipped_strict(read) and \
+                abs(0 - sctools.left_softclip_reference_start(read)) > max_edge_distance:
                 continue
 
         if read.is_reverse:
 
-            if sctools.is_left_softclipped_strict(read) and sctools.left_softclipped_position(read) >= 0 and len(
-                    sctools.left_softclipped_sequence_strict(read))/len(read.query_sequence) > max_internal_softclip_prop:
+            if sctools.is_left_softclipped_strict(read) and \
+                sctools.left_softclipped_position(read) >= 0 and \
+                sctools.left_softclip_proportion(read) > max_internal_softclip_prop:
                 continue
 
             elif (len(database_dict[read.reference_name]) - read.reference_end) > max_edge_distance:
                 continue
 
-            elif sctools.is_right_softclipped_strict(read) and len(
-                    sctools.right_softclipped_sequence_strict(read)) > max_edge_distance:
+            elif sctools.is_right_softclipped_strict(read) and \
+                abs(0 - (len(database_dict[read.reference_name]) - sctools.right_softclip_reference_end(read))) > max_edge_distance:
                 continue
 
         pair_id, flank_id = read.query_name.split('_')
@@ -168,6 +173,7 @@ def prefilter_reads(bam, database_dict, min_perc_identity, max_internal_softclip
 
     return keep_reads
 
+
 def get_pairs(reads, database_dict, length_difference_max):
 
     keep_reads = defaultdict(list)
@@ -175,13 +181,12 @@ def get_pairs(reads, database_dict, length_difference_max):
 
         for ref in reads[pair]:
 
-            if len(reads[pair][ref]['1']) > 0 and len(reads[pair][ref]['2']) > 0 \
-                    and len(reads[pair][ref]['1']) == len(reads[pair][ref]['2']) and \
-                    mapped_both_ends(reads[pair][ref]['1'], reads[pair][ref]['2'],
-                                     database_dict, length_difference_max):
+            if len(reads[pair][ref]['1']) > 0 and \
+                len(reads[pair][ref]['2']) > 0 and \
+                len(reads[pair][ref]['1']) == len(reads[pair][ref]['2']) and \
+                mapped_both_ends(reads[pair][ref]['1'], reads[pair][ref]['2'], database_dict, length_difference_max):
 
                 pairs = match_pairs(reads[pair][ref]['1'], reads[pair][ref]['2'])
-
 
                 for p in pairs:
 
@@ -192,6 +197,7 @@ def get_pairs(reads, database_dict, length_difference_max):
                         keep_reads[pair].append((p[0], p[1]))
 
     return keep_reads
+
 
 def mapped_both_ends(reads1, reads2, database_dict, length_difference_max):
     fiveprime_count = 0
@@ -207,6 +213,7 @@ def mapped_both_ends(reads1, reads2, database_dict, length_difference_max):
         return True
     else:
         return False
+
 
 def match_pairs(reads1, reads2):
     pairwise_dist = []
@@ -240,6 +247,7 @@ def match_pairs(reads1, reads2):
 
     return pairs
 
+
 def keep_best_alignment_score(reads):
     keep_reads = []
 
@@ -264,6 +272,7 @@ def index_database(inferseq_database):
         bowtie2tools.index_genome(inferseq_database)
     logger.info("Database has been indexed...")
 
+
 def write_flanks_to_align_to_database(pairs, tmp_dir):
     fasta_prefix = join(tmp_dir, 'mustache.inferseq_database.' + str(randint(0, 1e20)))
 
@@ -272,6 +281,7 @@ def write_flanks_to_align_to_database(pairs, tmp_dir):
     fastatools.write_flanks_to_unpaired_fasta(writeflanks, fasta_prefix)
 
     return fasta_prefix
+
 
 def get_flanks(pairs):
     flanks = []
@@ -283,6 +293,7 @@ def get_flanks(pairs):
                        'seq_3p': seq_3p})
     return flanks
 
+
 def handle_empty_pairsfile(pairs, output_file):
     if pairs.shape[0] == 0:
         outfile = pd.DataFrame(columns=['pair_id', 'method', 'loc', 'inferred_seq_length', 'inferred_seq'])
@@ -293,7 +304,3 @@ def handle_empty_pairsfile(pairs, output_file):
         outfile.to_csv(output_file, sep='\t', index=False)
         logger.info("Empty pairs file, exiting...")
         sys.exit()
-
-
-if __name__ == '__main__':
-    inferseq_database()

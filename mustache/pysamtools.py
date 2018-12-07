@@ -213,7 +213,7 @@ def query_qualities_to_phred(quals):
     return [ord(q)-33 for q in quals]
 
 def get_perc_identity(read):
-    mismatches = len([c for c in read.get_tag('MD') if not c.isdigit()])
-    matches = read.query_alignment_length
-    identity = matches / (matches + mismatches)
+    total = read.query_alignment_length
+    matches = len(read.get_aligned_pairs(matches_only=True))
+    identity = matches/total
     return(identity)
