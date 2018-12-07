@@ -191,6 +191,7 @@ def get_pairs(reads):
 
 
 def filter_nocontext_pairs(pairs, max_internal_softclip_prop):
+
     keep_pairs = defaultdict(list)
     for pair_id in pairs:
         for read1, read2 in pairs[pair_id]:

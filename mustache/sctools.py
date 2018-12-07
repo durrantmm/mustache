@@ -180,5 +180,5 @@ def left_softclip_proportion(read):
 def left_softclip_reference_start(read):
     return read.reference_start - len(left_softclipped_sequence_strict(read))
 
-def left_softclip_reference_end(read):
+def right_softclip_reference_end(read):
     return read.reference_end + len(right_softclipped_sequence_strict(read))
