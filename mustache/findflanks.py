@@ -348,24 +348,27 @@ class SoftclipParser:
         for contig in self.softclipped_sites:
             for pos in self.softclipped_sites[contig]:
 
+                reads_at_site = self.get_reads_at_site(contig, pos)
+
                 runthrough_count, insertion_5p_count, insertion_3p_count, deletion_count = \
-                    self.get_unclipped_read_info_at_site(contig, pos)
+                    self.get_unclipped_read_info_at_site(contig, pos, reads_at_site)
 
                 self.softclipped_sites[contig][pos].add_runthrough_count(runthrough_count)
                 self.softclipped_sites[contig][pos].add_insertion_5p_count(insertion_5p_count)
                 self.softclipped_sites[contig][pos].add_insertion_3p_count(insertion_3p_count)
                 self.softclipped_sites[contig][pos].add_deletion_count(deletion_count)
 
-                upstream_runthrough_count, upstream_insertion_5p_count, upstream_insertion_3p_count, upstream_deletion_count= None, None, None, None
+                upstream_runthrough_count, upstream_insertion_5p_count, upstream_insertion_3p_count, upstream_deletion_count = None, None, None, None
                 downstream_runthrough_count, downstream_insertion_5p_count, downstream_insertion_3p_count, downstream_deletion_count = None, None, None, None
+
 
                 if pos - 1 >= 0:
                     upstream_runthrough_count, upstream_insertion_5p_count, upstream_insertion_3p_count, upstream_deletion_count = \
-                        self.get_unclipped_read_info_at_site(contig, pos + 1)
+                        self.get_unclipped_read_info_at_site(contig, pos + 1, reads_at_site)
 
                 if pos + 1 < self.contig_lengths[contig]:
                     downstream_runthrough_count, downstream_insertion_5p_count, downstream_insertion_3p_count, downstream_deletion_count = \
-                        self.get_unclipped_read_info_at_site(contig, pos + 1)
+                        self.get_unclipped_read_info_at_site(contig, pos + 1, reads_at_site)
 
                 if upstream_deletion_count:
                     self.softclipped_sites[contig][pos].add_upstream_deletion_count(upstream_deletion_count)
@@ -374,16 +377,12 @@ class SoftclipParser:
                     self.softclipped_sites[contig][pos].add_downstream_deletion_count(downstream_deletion_count)
 
 
+    def get_reads_at_site(self, contig, pos):
 
-    def get_unclipped_read_info_at_site(self, contig, pos):
+        reads = []
 
-        runthrough_count = 0
-        insertion_5p_count = 0
-        insertion_3p_count = 0
-        deletion_count = 0
-
-        start = pos-1
-        end = pos+2
+        start = pos - 1
+        end = pos + 2
 
         if start < 0:
             start = 0
@@ -391,6 +390,19 @@ class SoftclipParser:
             end = self.contig_lengths[contig]
 
         for read in self.bam.fetch(contig, start, end):
+            reads.append(read)
+
+        return reads
+
+
+    def get_unclipped_read_info_at_site(self, contig, pos, reads):
+
+        runthrough_count = 0
+        insertion_5p_count = 0
+        insertion_3p_count = 0
+        deletion_count = 0
+
+        for read in reads:
 
             if not self.passes_read_filters(read):
                 continue
