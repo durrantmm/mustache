@@ -2,50 +2,6 @@ import warnings
 warnings.filterwarnings("ignore")
 from mustache.sctools import *
 
-def get_softclipped_seqs_qualities(bam_file, contig, pos, orient, min_alignment_quality, min_alignment_inner_length=21):
-    softclip_count = 0
-    softclipped_seqs = []
-    softclipped_qualities = []
-
-    if orient == 'R':
-        start, end = pos - 1, pos
-        if start < 0:
-            start = 0
-
-    if orient == 'L':
-        start, end = pos + 1, pos + 2
-
-        if end > contig_length(bam_file, contig):
-            end = contig_length(bam_file, contig)
-
-    for pu in bam_file.pileup(contig, start, end, truncate=True):
-        for pr in pu.pileups:
-            read = pr.alignment
-
-            if read.mapping_quality < min_alignment_quality:
-                continue
-
-            if not read_meets_min_alignment_inner_length(read, min_alignment_inner_length):
-                continue
-
-            if orient == 'L':
-                if is_left_softclipped_lenient_at_site(read, contig, pos):
-                    softclip_count += 1
-                    softclipped_seqs.append(left_softclipped_sequence(read))
-                    softclipped_qualities.append(left_softclip_qualities(read))
-
-            elif orient == 'R':
-                if is_right_softclipped_lenient_at_site(read, contig, pos):
-                    softclip_count += 1
-                    softclipped_seqs.append(right_softclipped_sequence(read))
-                    softclipped_qualities.append(right_softclip_qualities(read))
-
-    if orient == 'L':
-        softclipped_seqs = [seq[::-1] for seq in softclipped_seqs]
-        softclipped_qualities = [qual[::-1] for qual in softclipped_qualities]
-
-    return softclipped_seqs, softclipped_qualities
-
 def get_left_softclipped_reads_at_site(bam_file, contig, left_site, get_quals=False, softclip_only=False):
     left_softclipped_reads = []
     left_softclipped_quals = []
@@ -217,3 +173,9 @@ def get_perc_identity(read):
     matches = len(read.get_aligned_pairs(matches_only=True))
     identity = matches/total
     return(identity)
+
+def get_bam_contig_dict(bam_file):
+    contig_dict = {}
+    for contig in bam_file.header['SQ']:
+        contig_dict[contig['SN']] = contig['LN']
+    return contig_dict

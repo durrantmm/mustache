@@ -1,7 +1,5 @@
 import warnings
 warnings.filterwarnings("ignore")
-import sys
-import click
 import pygogo as gogo
 import pandas as pd
 import numpy as np
@@ -22,7 +20,7 @@ def get_flank_pairs(flanks, tmp_dir, tmp_output_prefix=None, max_direct_repeat_l
     pairs = pair_all_nearby_flanks(flanks, max_direct_repeat_length)
     logger.info("Finding all inverted repeats at termini in %d candidate pairs..." % pairs.shape[0])
     pairs = check_pairs_for_ir(pairs, truncated_flank_length, ir_distance_from_end, tmp_dir, tmp_output_prefix)
-    logger.info("Filtering pairs according to existence of inverted repeats, flank length difference, and read count difference...")
+    logger.info("Filtering pairs according to existence of inverted repeats, read count difference, and flank length difference...")
     filtered_pairs = filter_pairs(pairs)
 
     return filtered_pairs
@@ -31,7 +29,7 @@ def get_flank_pairs(flanks, tmp_dir, tmp_output_prefix=None, max_direct_repeat_l
 def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
 
     column_names = ['contig', 'index_5p', 'index_3p', 'pos_5p', 'pos_3p', 'softclip_count_5p', 'softclip_count_3p',
-                    'runthrough_count_5p', 'runthrough_count_3p']
+                    'total_count_5p', 'total_count_3p']
 
     column_names += ['seq_5p', 'seq_3p']
 
@@ -39,21 +37,21 @@ def pair_all_nearby_flanks(flanks, max_direct_repeat_length):
 
     for index_5p, row in flanks.iterrows():
 
-        if row.orient != 'R':
+        if row.orient != '5p':
             continue
 
         contig, pos_5p = row['contig'], row['pos']
-        softclip_count_5p, runthrough_count_5p, seq_5p = row['softclip_count'], row['runthrough_count'], row['consensus_seq']
+        softclip_count_5p, total_count_5p, seq_5p = row['consensus_softclip_count'], row['total_count'], row['consensus_seq']
 
         min_pos = pos_5p - max_direct_repeat_length
 
-        candidate_pairs = flanks.query('contig == @contig & pos > @min_pos & pos < @pos_5p & orient == "L"')
+        candidate_pairs = flanks.query('contig == @contig & pos > @min_pos & pos < @pos_5p & orient == "3p"')
 
         for index_3p, row2 in candidate_pairs.iterrows():
-            pos_3p, softclip_count_3p, runthrough_count_3p, seq_3p = row2['pos'], row2['softclip_count'], \
-                                                                     row2['runthrough_count'], row2['consensus_seq']
+            pos_3p, softclip_count_3p, total_count_3p, seq_3p = row2['pos'], row2['consensus_softclip_count'], \
+                                                                     row2['total_count'], row2['consensus_seq']
 
-            out = [contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, runthrough_count_5p, runthrough_count_3p]
+            out = [contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, total_count_5p, total_count_3p]
 
 
 
@@ -75,8 +73,8 @@ def check_pairs_for_ir(pairs, truncated_flank_length, ir_distance_from_end, tmp_
         contig, index_5p, index_3p, pos_5p, pos_3p, softclip_count_5p, softclip_count_3p, \
         runthrough_count_5p, runthrough_count_3p, seq_5p, seq_3p = row
 
-        trunc_seq_5p = truncate_sequence(seq_5p, truncated_flank_length, orient='R')
-        trunc_seq_3p = truncate_sequence(seq_3p, truncated_flank_length, orient='L')
+        trunc_seq_5p = truncate_sequence(seq_5p, truncated_flank_length, orient='5p')
+        trunc_seq_3p = truncate_sequence(seq_3p, truncated_flank_length, orient='3p')
 
         combined_seq = str('N'*20).join([trunc_seq_5p, trunc_seq_3p])
 
@@ -118,10 +116,10 @@ def filter_pairs(pairs):
     pairs.loc[:, 'direct_repeat_length'] = pairs.loc[:, 'pos_5p'] - pairs.loc[:, 'pos_3p'] -1
 
     pairs['IR_length'] = np.array([len(seq) if seq is not None else 0 for seq in list(pairs.loc[:,'IR_5p'])])
-    pairs['difflength'] = abs(np.array(list(map(len, pairs['seq_5p']))) - np.array(list(map(len, pairs['seq_3p']))))
     pairs['diffcount'] = abs(pairs['softclip_count_5p'] - pairs['softclip_count_3p'])
+    pairs['difflength'] = abs(np.array(list(map(len, pairs['seq_5p']))) - np.array(list(map(len, pairs['seq_3p']))))
     pairs['ignore_pair'] = False
-    sorted_pairs = pairs.sort_values(['IR_length', 'difflength', 'diffcount'], ascending=[False, True, True])
+    sorted_pairs = pairs.sort_values(['IR_length', 'diffcount', 'difflength'], ascending=[False, True, True])
 
     keep_row = []
 
@@ -162,12 +160,12 @@ def ir_near_3prime_end(ir2, ir_distance_from_end, seqlen):
         return True
     return False
 
-def truncate_sequence(seq, truncated_seq_length, orient='R'):
+def truncate_sequence(seq, truncated_seq_length, orient='5p'):
     truncated_seq = seq
     if len(truncated_seq) > truncated_seq_length:
-        if orient == 'R':
+        if orient == '5p':
             truncated_seq = truncated_seq[:truncated_seq_length]
-        elif orient == 'L':
+        elif orient == '3p':
             truncated_seq = truncated_seq[-truncated_seq_length:]
     return truncated_seq
 
@@ -259,7 +257,6 @@ def get_reference_direct_repeats(flank_pairs, genome_dict, target_region_size=50
         direct_repeat = genome_dict[contig][(start+1):end]
         direct_repeats.append(''.join(direct_repeat))
 
-
     positions['direct_repeat_reference'] = direct_repeats
     return positions
 
@@ -272,8 +269,10 @@ def _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_fi
     if flanks.shape[0] == 0:
         logger.info("No flanks found in the input file...")
         flank_pairs = pd.DataFrame(
-            columns=['pair_id', 'contig', 'pos_5p', 'pos_3p', 'softclip_count_5p', 'softclip_count_3p',
-                     'runthrough_count_5p', 'runthrough_count_3p', 'has_IR', 'IR_length',
+            columns=['pair_id', 'contig', 'pos_5p', 'pos_3p',
+                     'softclip_count_5p', 'softclip_count_3p',
+                     'total_count_5p', 'total_count_3p',
+                     'has_IR', 'IR_length',
                      'IR_5p', 'IR_3p', 'seq_5p', 'seq_3p', 'direct_repeat_reference',
                      'direct_repeat_reads_consensus'])
 

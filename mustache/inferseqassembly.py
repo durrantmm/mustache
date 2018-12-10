@@ -75,13 +75,21 @@ def _inferseq_assembly(pairsfile, bamfile, inferseq_assembly, inferseq_reference
 def make_dataframe(inferred_sequences, method=None):
     outdict = OrderedDict([("pair_id", []), ("method", []), ("loc", []),
                            ("inferred_seq_length", []), ("inferred_seq", [])])
+
     for pair_id in inferred_sequences:
         for result in inferred_sequences[pair_id]:
+
+            if method == 'inferred_assembly_with_context':
+                if result[2] == True:
+                    method = 'inferred_assembly_with_half_context'
+                else:
+                    method = 'inferred_assembly_with_full_context'
+
             outdict['pair_id'].append(int(pair_id.split('_')[0]))
             outdict['method'].append(method)
             outdict['loc'].append(str(result[0]))
             outdict['inferred_seq_length'].append(result[1])
-            outdict['inferred_seq'].append(''.join(result[2]))
+            outdict['inferred_seq'].append(''.join(result[3]))
 
     outdf = pd.DataFrame.from_dict(outdict)
 
@@ -131,11 +139,15 @@ def prefilter_context_reads(bam, genome_dict, min_perc_identity):
             continue
 
         if not read.is_reverse:
-            if sctools.is_left_softclipped_strict(read):
+            if sctools.is_left_softclipped_strict(read) and \
+                sctools.get_left_softclip_length(read) > 1 and \
+                sctools.left_softclipped_position(read) >= 0:
                 continue
 
         if read.is_reverse:
-            if sctools.is_right_softclipped_strict(read):
+            if sctools.is_right_softclipped_strict(read) and \
+                sctools.get_right_softclip_length(read) > 1 and \
+                sctools.right_softclipped_position(read) < len(genome_dict[read.reference_name]):
                 continue
 
         pair_id, width, flank_id = read.query_name.split('_')
@@ -215,6 +227,12 @@ def filter_context_pairs(pairs, max_internal_softclip_prop):
     keep_pairs = defaultdict(list)
     for pair_id in pairs:
         for read1, read2 in pairs[pair_id]:
+
+            if sctools.is_left_softclipped_strict(read1) and \
+                sctools.get_left_softclip_length(read1) > 1 and \
+                sctools.is_right_softclipped_strict(read2) and \
+                sctools.get_right_softclip_length(read2) > 1:
+                continue
 
             if sctools.is_right_softclipped_strict(read1) and \
                 sctools.right_softclip_proportion(read1) > max_internal_softclip_prop:
@@ -307,13 +325,23 @@ def get_inferred_sequences(pairs, genome_dict, add_softclipped_bases=False):
             context_width = int(read1.query_name.split('_')[-2])
             name = read1.reference_name + ':' + str(read1.reference_start+context_width) + '-' + str(read2.reference_end-context_width)
 
-            inferred_sequence = genome_dict[read1.reference_name][read1.reference_start+context_width:read2.reference_end-context_width]
+            inferred_sequence = genome_dict[read1.reference_name][read1.reference_start:read2.reference_end]
 
             if add_softclipped_bases:
                 inferred_sequence = sctools.left_softclipped_sequence_strict(read1) + inferred_sequence + sctools.right_softclipped_sequence_strict(read2)
 
+            inferred_sequence = inferred_sequence[context_width:-context_width]
+
             if read1.query_name.split('_')[-1] == '2':
                 inferred_sequence = misc.revcomp(inferred_sequence)
+
+            contig_edge = False
+            if sctools.is_left_softclipped_strict(read1) and \
+                sctools.left_softclipped_position(read1) < 0:
+                contig_edge = True
+            elif sctools.is_right_softclipped_strict(read2) and \
+                sctools.right_softclipped_position(read2) >= len(genome_dict[read2.reference_name]):
+                contig_edge = True
 
         else:
             name = read1.reference_name + ':' + str(read1.reference_start) + '-' + str(read2.reference_end)
@@ -325,7 +353,15 @@ def get_inferred_sequences(pairs, genome_dict, add_softclipped_bases=False):
             if read1.query_name.split('_')[-1] == '2':
                 inferred_sequence = misc.revcomp(inferred_sequence)
 
-        inferred_sequences.append((name, len(inferred_sequence), inferred_sequence))
+            contig_edge = False
+            if sctools.is_left_softclipped_strict(read1) and \
+                            sctools.left_softclipped_position(read1) < 0:
+                contig_edge = True
+            elif sctools.is_right_softclipped_strict(read2) and \
+                            sctools.right_softclipped_position(read2) >= len(genome_dict[read2.reference_name]):
+                contig_edge = True
+
+        inferred_sequences.append((name, len(inferred_sequence), contig_edge, inferred_sequence))
 
     return inferred_sequences
 

@@ -17,7 +17,7 @@ def right_softclipped_position(read):
 def is_right_softclipped_lenient(read):
     if read.cigartuples[-1][0] == 4:
         return True
-    elif read.query_sequence[-1] != read.get_reference_sequence()[-1]:
+    elif read.get_tag('MD')[-1] == '0' and not read.get_tag('MD')[-2].isdigit():
         return True
     else:
         return False
@@ -25,7 +25,7 @@ def is_right_softclipped_lenient(read):
 def is_left_softclipped_lenient(read):
     if read.cigartuples[0][0] == 4:
         return True
-    elif read.query_sequence[0] != read.get_reference_sequence()[0]:
+    elif read.get_tag('MD')[0] == '0':
         return True
     else:
         return False
@@ -42,6 +42,14 @@ def is_right_softclipped_lenient_at_site(read, contig, pos):
     if not is_right_softclipped_lenient(read):
         return False
     if right_softclipped_site_lenient(read) == (contig, pos):
+        return True
+    else:
+        return False
+
+def is_softclipped_lenient_at_site(read, contig, pos):
+    if is_right_softclipped_lenient_at_site(read, contig, pos):
+        return True
+    elif is_left_softclipped_lenient_at_site(read, contig, pos):
         return True
     else:
         return False
@@ -182,3 +190,4 @@ def left_softclip_reference_start(read):
 
 def right_softclip_reference_end(read):
     return read.reference_end + len(right_softclipped_sequence_strict(read))
+

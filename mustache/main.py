@@ -32,15 +32,18 @@ def cli():
 @click.option('--output_file', '-o', default='mustache.findflanks.tsv', help="The output file to save the results.")
 @click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
 @click.option('--min_softclip_count', '-mincount', default=4, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
-@click.option('--min_count_consensus', '-mcc', default=2, help="When building the consensus sequence, stop building consensus if read count drops below this cutoff.")
 @click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
-@click.option('--min_softclip_ratio', '-minratio', default=0.1, help="For a softclipped site to be considered, the proportion of softclipped sites must not fall below this value. Below 0 and 0.1.")
 @click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + maximum direct repeat length.")
-def findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_consensus, min_alignment_quality, min_softclip_ratio, min_alignment_inner_length, output_file=None):
+@click.option('--min_distance_to_mate', '-mcc', default=22, help="A minimum distance to a potential nearby mate, filters out sites that have no pairs.")
+@click.option('--min_softclip_ratio', '-minratio', default=0.15, help="For a softclipped site to be considered, the proportion of softclipped sites must not fall below this value.")
+@click.option('--max_indel_ratio', '-maxindelratio', default=0.03, help="For a softclipped site to be considered, the proportion of small insertions/deletions at this site must not be above this value.")
+@click.option('--min_count_consensus', '-mcc', default=2, help="When building the consensus sequence, stop building consensus if read count drops below this cutoff.")
+def findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, min_alignment_inner_length,
+               min_distance_to_mate, min_softclip_ratio, max_indel_ratio, min_count_consensus, output_file):
     """A click access point for the findflanks module. This is used for creating the command line interface."""
 
-    _findflanks(bamfile, min_softclip_length, min_softclip_count, min_count_consensus, min_alignment_quality, min_softclip_ratio,
-                min_alignment_inner_length, output_file)
+    _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, min_alignment_inner_length,
+                min_distance_to_mate, min_softclip_ratio, max_indel_ratio, min_count_consensus, output_file)
 
 
 @cli.command(short_help="Pair identified flanks with each other to represent 5' and 3' ends of inserted sequence.", help_priority=2)
@@ -126,7 +129,7 @@ def inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, ou
 @cli.command(short_help='Infers the identity of an inserted sequence by aligning flank pairs to an database of known inserted elements.', help_priority=7)
 @click.argument('pairsfile', type=click.Path(exists=True))
 @click.argument('fasta_database', type=click.Path(exists=True))
-@click.option('--min_perc_identity', '-minident', default=0.95, help="Only consider matches with a percentage identity above this threshold")
+@click.option('--min_perc_identity', '-minident', default=0.90, help="Only consider matches with a percentage identity above this threshold")
 @click.option('--max_internal_softclip_prop', '-maxclip', default=0.05, help="Do not consider matches with internal softclipped ends exceeding this proportion of the total read")
 @click.option('--max_edge_distance', '-maxedgedist', default=10, help="Reads must align within this number of bases from the edge of an element to be considered.")
 @click.option('--output_file', '-o', default='mustache.inferseq_database.tsv', help="The output file to save the results.")
