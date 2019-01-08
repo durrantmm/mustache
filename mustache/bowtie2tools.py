@@ -5,9 +5,9 @@ import click
 
 def index_genome(genome_path, silence=True):
     if silence:
-        shell('bowtie2-build -o 1 -q {genome_path} {genome_path} 2> /dev/null;'.format(genome_path=genome_path))
+        shell('bowtie2-build -o 0 -q {genome_path} {genome_path} 2> /dev/null;'.format(genome_path=genome_path))
     else:
-        shell('bowtie2-build -o 1 {genome_path} {genome_path}'.format(genome_path=genome_path))
+        shell('bowtie2-build -o 0 {genome_path} {genome_path}'.format(genome_path=genome_path))
 
     return genome_is_indexed(genome_path)
 

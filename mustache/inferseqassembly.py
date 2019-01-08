@@ -8,6 +8,7 @@ from mustache import bowtie2tools
 from mustache import sctools
 from mustache import misc
 from mustache import pysamtools
+from mustache.inferseq import InferSequence, AlignedPairs
 import pygogo as gogo
 import pysam
 from Bio import SeqIO
@@ -29,293 +30,210 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 def _inferseq_assembly(pairsfile, bamfile, inferseq_assembly, inferseq_reference, min_perc_identity,
                        max_internal_softclip_prop, max_inferseq_size, min_inferseq_size, keep_intermediate, output_file):
 
-    index_genome(inferseq_assembly)
-
-    bam = pysam.AlignmentFile(bamfile, 'rb')
-    reference_genome_dict = {rec.id: rec.seq for rec in SeqIO.parse(inferseq_reference, 'fasta')}
-    assembly_genome_dict = {rec.id: rec.seq for rec in SeqIO.parse(inferseq_assembly, 'fasta')}
-
-    tmp_dir = dirname(output_file)
-
-    pairs = pd.read_csv(pairsfile, sep='\t')
+    pairs = pd.read_csv(pairsfile, sep='\t', keep_default_na=False, na_values=[
+        '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A', 'N/A', '#NA', 'NULL', 'NaN', '-NaN', 'nan', '-nan'])
     handle_empty_pairsfile(pairs, output_file)
 
-    logger.info("Aligning pairs to assembly...")
-    assembly_flanks_fasta_prefix = write_flanks_to_align_to_assembly(pairs, bam, reference_genome_dict, tmp_dir)
-    assembly_outbam = join(tmp_dir, 'mustache.inferseq_assembly.' + str(randint(0, 1e20)) + '.bam')
-    bowtie2tools.align_fasta_to_genome(
-        assembly_flanks_fasta_prefix+'.fasta',
-        inferseq_assembly, assembly_outbam, silence=True,
-        additional_flags='--all'
+    index_genome(inferseq_assembly)
+    tmp_dir = dirname(output_file)
+
+    context_width = 25
+    context_inferer = InferSequenceContext(
+        pairs, inferseq_assembly, bamfile, inferseq_reference, min_perc_identity,
+        max_internal_softclip_prop, max_inferseq_size,
+        min_inferseq_size, keep_intermediate,
+        context_width, 'inferred_assembly_with_context', tmp_dir
     )
 
-    logger.info("Inferring sequences from pairs aligned to assembly and in context...")
-    sequences_inferred_from_assembly_with_context = infer_sequences_with_context(assembly_outbam, assembly_genome_dict,
-                                                                                 min_perc_identity, max_internal_softclip_prop)
-    logger.info("Inferring sequences from pairs aligned to assembly...")
-    sequences_inferred_from_assembly_without_context = infer_sequences_without_context(assembly_outbam, assembly_genome_dict,
-                                                                                       min_perc_identity, max_internal_softclip_prop)
+    inferred_sequences_with_context = context_inferer.infer_sequences()
 
-    if not keep_intermediate:
-        shell('rm {fasta_prefix}* {outbam}*'.format(fasta_prefix=assembly_flanks_fasta_prefix, outbam=assembly_outbam))
+    nocontext_inferer = InferSequence(
+        pairs, inferseq_assembly, min_perc_identity, max_internal_softclip_prop, max_inferseq_size,
+        min_inferseq_size, keep_intermediate, 'inferred_assembly_without_context', tmp_dir
+    )
 
-    method1 = make_dataframe(sequences_inferred_from_assembly_with_context, method='inferred_assembly_with_context')
-    method2 = make_dataframe(sequences_inferred_from_assembly_without_context, method='inferred_assembly_without_context')
+    inferred_sequences_without_context = nocontext_inferer.infer_sequences()
 
-    all_inferred_results = method1.append(method2, ignore_index=True).sort_values(by=['pair_id', 'method'])
+    inferred_sequences = pd.concat([inferred_sequences_with_context, inferred_sequences_without_context]).sort_values(
+        ['pair_id', 'loc']
+    )
 
-    all_inferred_results.loc[:, 'pair_id'] = list(map(str, map(int, list(all_inferred_results['pair_id']))))
-    all_inferred_results = all_inferred_results.query("inferred_seq_length >= @min_inferseq_size")
-    all_inferred_results = all_inferred_results.query("inferred_seq_length <= @max_inferseq_size")
-
+    logger.info("Inferred sequences for %d pairs..." % len(set(list(inferred_sequences['pair_id']))))
     logger.info("Writing results to file %s..." % output_file)
-    all_inferred_results.to_csv(output_file, sep='\t', index=False)
+    inferred_sequences.to_csv(output_file, sep='\t', index=False)
 
 
-def make_dataframe(inferred_sequences, method=None):
-    outdict = OrderedDict([("pair_id", []), ("method", []), ("loc", []),
-                           ("inferred_seq_length", []), ("inferred_seq", [])])
 
-    for pair_id in inferred_sequences:
-        for result in inferred_sequences[pair_id]:
 
-            if method == 'inferred_assembly_with_context':
-                if result[2] == True:
-                    method = 'inferred_assembly_with_half_context'
+class InferSequenceContext(InferSequence):
+
+    context_width = None
+    ref_bam = None
+    ref_genome_dict = None
+
+    def __init__(self, pairs, genome_fasta, ref_bam, ref_genome_fasta, min_perc_identity, max_internal_softclip_prop,
+                 max_inferseq_size, min_inferseq_size, keep_intermediate, context_width, method_name='inferred_sequence',
+                 tmp_dir='/tmp'):
+
+        InferSequence.__init__(self, pairs, genome_fasta, min_perc_identity, max_internal_softclip_prop,
+                               max_inferseq_size, min_inferseq_size, keep_intermediate, method_name, tmp_dir)
+
+        self.ref_bam = pysam.AlignmentFile(ref_bam, 'rb')
+        self.context_width = context_width
+        self.ref_genome_dict = {rec.id: rec.seq for rec in SeqIO.parse(ref_genome_fasta, 'fasta')}
+
+        self.all_aligned_pairs = defaultdict(AlignedPairsContext)
+
+
+    def get_flanks(self):
+
+        context_flanks = []
+        for index, p in self.pairs.iterrows():
+            pair_id, contig_name, pos_5p, pos_3p, seq_5p, seq_3p = p['pair_id'], p['contig'], p['pos_5p'], p['pos_3p'], \
+                                                                   p['seq_5p'], p['seq_3p']
+            seq_5p, seq_3p = seq_5p.rstrip('N'), seq_3p.lstrip('N')
+            context_5p = self.get_sequence_context(self.ref_genome_dict[contig_name], contig_name,
+                                                   pos_5p - self.context_width, pos_5p)
+            context_3p = self.get_sequence_context(self.ref_genome_dict[contig_name], contig_name,
+                                                   pos_3p + 1, pos_3p + 1 + self.context_width)
+
+            context_flanks.append({'pair_id': str(pair_id),
+                                   'seq_5p': context_5p + seq_5p,
+                                   'seq_3p': seq_3p + context_3p})
+
+        return context_flanks
+
+
+    def get_sequence_context(self, contig, contig_name, start, end):
+
+        add_start_n = 0
+        add_end_n = 0
+        if start < 0:
+            add_start_n = abs(start)
+            start = 0
+        if end > len(contig):
+            add_end_n = end - len(contig)
+            end = len(contig)
+
+        reference_sequence = 'N' * add_start_n + contig[start:end] + 'N' * add_end_n
+        sequence_context_dict = initialize_sequence_context(reference_sequence, start, end)
+
+        for read in self.ref_bam.fetch(contig_name, start, end):
+
+            ref_positions = read.get_reference_positions(full_length=True)
+            read_query = read.query_sequence
+            read_qualities = read.query_qualities
+
+            i = 0
+            for pos in ref_positions:
+                if pos is not None and pos in sequence_context_dict:
+                    sequence_context_dict[pos][read_query[i]] += read_qualities[i]
+                i += 1
+
+        consensus = self.get_consensus_context(sequence_context_dict)
+        return consensus
+
+
+    def get_consensus_context(self, sequence_context_dict):
+        start, end = min(sequence_context_dict.keys()), max(sequence_context_dict.keys()) + 1
+        consensus = ''
+        for pos in range(start, end):
+            best_qual = 0
+            best_nuc = ''
+            for nuc in sequence_context_dict[pos]:
+                qual = sequence_context_dict[pos][nuc]
+                if qual > best_qual:
+                    best_qual = qual
+                    best_nuc = nuc
+            consensus += best_nuc
+        return consensus
+
+
+    def get_inferred_sequence(self, forward_read, reverse_read, is_reverse):
+        contig = forward_read.reference_name
+        start = forward_read.reference_start
+        end = reverse_read.reference_end
+
+        inferred_sequence = ''.join(self.genome_dict[contig][start:end])
+
+        inferred_sequence = sctools.left_softclipped_sequence_strict(forward_read) + \
+                            inferred_sequence + \
+                            sctools.right_softclipped_sequence_strict(reverse_read)
+
+        inferred_sequence = inferred_sequence[self.context_width:-self.context_width]
+
+        if is_reverse:
+            inferred_sequence = misc.revcomp(inferred_sequence)
+
+        contig_edge = False
+        if sctools.is_left_softclipped_strict(forward_read) and \
+                        sctools.left_softclipped_position(forward_read) < 0:
+            contig_edge = True
+        elif sctools.is_right_softclipped_strict(reverse_read) and \
+                        sctools.right_softclipped_position(reverse_read) >= len(self.genome_dict[contig]):
+            contig_edge = True
+
+
+        return inferred_sequence, contig_edge
+
+    def make_dataframe(self):
+
+        outdict = OrderedDict([("pair_id", []), ("method", []), ("loc", []),
+                               ("inferred_seq_length", []), ("inferred_seq", [])])
+
+        for aligned_pairs in self.all_aligned_pairs:
+            for pair in self.all_aligned_pairs[aligned_pairs].pairs:
+
+                inferred_seq, contig_edge = self.get_inferred_sequence(
+                    pair.forward_read, pair.reverse_read, pair.is_reverse()
+                )
+                outdict['pair_id'].append(int(pair.get_pair_id()))
+
+                if contig_edge == True:
+                    outdict['method'].append('inferred_assembly_with_half_context')
                 else:
-                    method = 'inferred_assembly_with_full_context'
+                    outdict['method'].append('inferred_assembly_with_full_context')
 
-            outdict['pair_id'].append(int(pair_id.split('_')[0]))
-            outdict['method'].append(method)
-            outdict['loc'].append(str(result[0]))
-            outdict['inferred_seq_length'].append(result[1])
-            outdict['inferred_seq'].append(''.join(result[3]))
+                outdict['loc'].append(pair.get_location())
+                outdict['inferred_seq_length'].append(len(inferred_seq))
+                outdict['inferred_seq'].append(inferred_seq)
 
-    outdf = pd.DataFrame.from_dict(outdict)
-
-    return outdf
+        outdf = pd.DataFrame.from_dict(outdict).sort_values(['pair_id', 'loc']).reset_index(drop=True)
+        return outdf
 
 
-def infer_sequences_with_context(bam_file, genome_dict, min_perc_identity, max_internal_softclip_prop):
-    bam = pysam.AlignmentFile(bam_file, 'rb')
-    keep_reads = prefilter_context_reads(bam, genome_dict, min_perc_identity)
-    keep_pairs = get_pairs(keep_reads)
-    keep_pairs = filter_context_pairs(keep_pairs, max_internal_softclip_prop)
+class AlignedPairsContext(AlignedPairs):
 
-    for pair_id in keep_pairs:
-        keep_pairs[pair_id] = keep_best_alignment_score(keep_pairs[pair_id])
+    context_width = None
 
-    inferred_sequences = defaultdict(list)
-    for pair_id in keep_pairs:
-        inferred_sequences[pair_id] = get_inferred_sequences(keep_pairs[pair_id], genome_dict, add_softclipped_bases=True)
-
-    return inferred_sequences
+    def __init__(self):
+        AlignedPairs.__init__(self)
 
 
-def infer_sequences_without_context(bam_file, genome_dict, min_perc_identity, max_internal_softclip_prop):
-    bam = pysam.AlignmentFile(bam_file, 'rb')
-    keep_reads = prefilter_nocontext_reads(bam, genome_dict, min_perc_identity)
-    keep_pairs = get_pairs(keep_reads)
-    keep_pairs = filter_nocontext_pairs(keep_pairs, max_internal_softclip_prop)
+    def filter_pairs_max_internal_softclip_prop(self, max_internal_softclip_prop):
+        keep_pairs = list()
+        for p in self.pairs:
 
-    for pair_id in keep_pairs:
-        keep_pairs[pair_id] = keep_best_alignment_score(keep_pairs[pair_id])
-
-    inferred_sequences = defaultdict(list)
-    for pair_id in keep_pairs:
-        inferred_sequences[pair_id] = get_inferred_sequences(keep_pairs[pair_id], genome_dict, add_softclipped_bases=True)
-
-    return inferred_sequences
-
-
-def prefilter_context_reads(bam, genome_dict, min_perc_identity):
-    keep_reads = defaultdict(lambda: defaultdict(list))
-
-    for read in bam:
-        if read.query_name.count('_') == 1:
-            continue
-
-        if pysamtools.get_perc_identity(read) < min_perc_identity:
-            continue
-
-        if not read.is_reverse:
-            if sctools.is_left_softclipped_strict(read) and \
-                sctools.get_left_softclip_length(read) > 1 and \
-                sctools.left_softclipped_position(read) >= 0:
+            if sctools.is_left_softclipped_strict(p.forward_read) and \
+                sctools.get_left_softclip_length(p.forward_read) > 1 and \
+                sctools.is_right_softclipped_strict(p.reverse_read) and \
+                sctools.get_right_softclip_length(p.reverse_read) > 1:
                 continue
 
-        if read.is_reverse:
-            if sctools.is_right_softclipped_strict(read) and \
-                sctools.get_right_softclip_length(read) > 1 and \
-                sctools.right_softclipped_position(read) < len(genome_dict[read.reference_name]):
+            if sctools.is_right_softclipped_strict(p.forward_read) and \
+                p.forward_read.reference_end < p.reverse_read.reference_end and \
+                sctools.right_softclip_proportion(p.forward_read) > max_internal_softclip_prop:
                 continue
 
-        pair_id, width, flank_id = read.query_name.split('_')
-
-        keep_reads[pair_id+'_'+width][read.reference_name].append(read)
-
-    return keep_reads
-
-
-def prefilter_nocontext_reads(bam, genome_dict, min_perc_identity):
-    keep_reads = defaultdict(lambda: defaultdict(list))
-
-    for read in bam:
-        if read.query_name.count('_') != 1:
-            continue
-        if pysamtools.get_perc_identity(read) < min_perc_identity:
-            continue
-
-        if not read.is_reverse:
-            if sctools.is_left_softclipped_strict(read) and \
-                sctools.get_left_softclip_length(read) > 1 and \
-                sctools.left_softclipped_position(read) >= 0:
+            if sctools.is_left_softclipped_strict(p.reverse_read) and \
+                p.reverse_read.reference_start > p.forward_read.reference_start and \
+                sctools.left_softclip_proportion(p.reverse_read) > max_internal_softclip_prop:
                 continue
 
-        if read.is_reverse:
-            if sctools.is_right_softclipped_strict(read) and \
-                sctools.get_right_softclip_length(read) > 1 and \
-                sctools.right_softclipped_position(read) < len(genome_dict[read.reference_name]):
-                continue
+            keep_pairs.append(p)
 
-        pair_id, flank_id = read.query_name.split('_')
+        self.pairs = keep_pairs
 
-        keep_reads[pair_id][read.reference_name].append(read)
-
-    return keep_reads
-
-
-def get_pairs(reads):
-
-    keep_pairs = defaultdict(list)
-    for pair in reads:
-        for ref in reads[pair]:
-            sorted_reads = sorted(reads[pair][ref], key=get_start)
-
-            current_forward_read = None
-            for read in sorted_reads:
-                if not read.is_reverse:
-                    current_forward_read = read
-                elif current_forward_read is not None:
-                        keep_pairs[pair].append((current_forward_read, read))
-                        current_forward_read = None
-    return keep_pairs
-
-
-def filter_nocontext_pairs(pairs, max_internal_softclip_prop):
-
-    keep_pairs = defaultdict(list)
-    for pair_id in pairs:
-        for read1, read2 in pairs[pair_id]:
-
-            if sctools.is_right_softclipped_strict(read1) and \
-                read1.reference_end < read2.reference_end and \
-                sctools.right_softclip_proportion(read1) > max_internal_softclip_prop:
-                continue
-
-            if sctools.is_left_softclipped_strict(read2) and \
-                read2.reference_start > read1.reference_start and \
-                sctools.left_softclip_proportion(read2) > max_internal_softclip_prop:
-                continue
-
-            keep_pairs[pair_id].append((read1, read2))
-
-    return keep_pairs
-
-
-def filter_context_pairs(pairs, max_internal_softclip_prop):
-    keep_pairs = defaultdict(list)
-    for pair_id in pairs:
-        for read1, read2 in pairs[pair_id]:
-
-            if sctools.is_left_softclipped_strict(read1) and \
-                sctools.get_left_softclip_length(read1) > 1 and \
-                sctools.is_right_softclipped_strict(read2) and \
-                sctools.get_right_softclip_length(read2) > 1:
-                continue
-
-            if sctools.is_right_softclipped_strict(read1) and \
-                sctools.right_softclip_proportion(read1) > max_internal_softclip_prop:
-                continue
-
-            if sctools.is_left_softclipped_strict(read2) and \
-                sctools.left_softclip_proportion(read2) > max_internal_softclip_prop:
-                continue
-
-            keep_pairs[pair_id].append((read1, read2))
-
-    return keep_pairs
-
-
-def get_start(read):
-    if read.is_reverse:
-        return read.reference_end
-    else:
-        return read.reference_start
-
-
-def keep_best_alignment_score(reads):
-    keep_reads = []
-
-    best_score = 0
-    for read1, read2 in reads:
-        read_combined_alignment_score = read1.get_tag('AS') + read2.get_tag('AS')
-        if read_combined_alignment_score > best_score:
-            best_score = read_combined_alignment_score
-
-    for read1, read2 in reads:
-        read_combined_alignment_score = read1.get_tag('AS') + read2.get_tag('AS')
-        if read_combined_alignment_score == best_score:
-            keep_reads.append((read1, read2))
-
-    return keep_reads
-
-
-def write_flanks_to_align_to_assembly(pairs, bam, genome_dict, tmp_dir):
-    fasta_prefix = join(tmp_dir, 'mustache.inferseq_assembly.' + str(randint(0, 1e20)))
-
-    flanks = get_flanks(pairs)
-    context_flanks = get_flanks_in_context(pairs, bam, genome_dict)
-
-    writeflanks = flanks+context_flanks
-    fastatools.write_flanks_to_unpaired_fasta(writeflanks, fasta_prefix)
-
-    return fasta_prefix
-
-
-def write_flanks_to_align_to_reference(pairs, tmp_dir):
-    fasta_prefix = join(tmp_dir, 'mustache.inferseq_assembly.' + str(randint(0, 1e20)))
-
-    writeflanks = get_flanks(pairs)
-
-    fastatools.write_flanks_to_unpaired_fasta(writeflanks, fasta_prefix)
-
-    return fasta_prefix
-
-
-def get_flanks(pairs):
-    flanks = []
-    for index, p in pairs.iterrows():
-        pair_id, seq_5p, seq_3p = p['pair_id'], p['seq_5p'], p['seq_3p']
-        seq_5p, seq_3p = seq_5p.upper().rstrip('N'), seq_3p.upper().lstrip('N')
-        flanks.append({'pair_id':str(pair_id),
-                       'seq_5p': seq_5p,
-                       'seq_3p': seq_3p})
-    return flanks
-
-def get_flanks_in_context(pairs, bam, genome_dict, context_width=25):
-    context_flanks = []
-    for index, p in pairs.iterrows():
-        pair_id, contig_name, pos_5p, pos_3p, seq_5p, seq_3p = p['pair_id'], p['contig'], p['pos_5p'], p['pos_3p'], p['seq_5p'], p['seq_3p']
-        seq_5p, seq_3p = seq_5p.rstrip('N'), seq_3p.lstrip('N')
-        context_5p = get_sequence_context(bam, genome_dict[contig_name], contig_name, pos_5p-context_width, pos_5p)
-        context_3p = get_sequence_context(bam, genome_dict[contig_name], contig_name, pos_3p+1, pos_3p+1+context_width)
-
-        context_flanks.append({'pair_id': str(pair_id)+'_'+str(context_width),
-                       'seq_5p': context_5p+seq_5p,
-                       'seq_3p': seq_3p+context_3p})
-
-    return context_flanks
 
 def get_inferred_sequences(pairs, genome_dict, add_softclipped_bases=False):
 
@@ -365,35 +283,6 @@ def get_inferred_sequences(pairs, genome_dict, add_softclipped_bases=False):
 
     return inferred_sequences
 
-def get_sequence_context(bam, contig, contig_name, start, end):
-
-    add_start_n = 0
-    add_end_n = 0
-    if start < 0:
-        add_start_n = abs(start)
-        start = 0
-    if end > len(contig):
-        add_end_n = end - len(contig)
-        end = len(contig)
-
-    reference_sequence = 'N' * add_start_n + contig[start:end] + 'N' * add_end_n
-    sequence_context_dict = initialize_sequence_context(reference_sequence, start, end)
-
-    for read in bam.fetch(contig_name, start, end):
-
-        ref_positions = read.get_reference_positions(full_length=True)
-        read_query = read.query_sequence
-        read_qualities = read.query_qualities
-
-        i = 0
-        for pos in ref_positions:
-            if pos is not None and pos in sequence_context_dict:
-                sequence_context_dict[pos][read_query[i]] += read_qualities[i]
-            i += 1
-
-    consensus = get_consensus_context(sequence_context_dict)
-    return consensus
-
 def initialize_sequence_context(target_region, expanded_start, expanded_end):
     target_region_reads = defaultdict(lambda: defaultdict(int))
     i = 0
@@ -402,19 +291,7 @@ def initialize_sequence_context(target_region, expanded_start, expanded_end):
         i += 1
     return target_region_reads
 
-def get_consensus_context(sequence_context_dict):
-    start, end = min(sequence_context_dict.keys()), max(sequence_context_dict.keys())+1
-    consensus = ''
-    for pos in range(start, end):
-        best_qual = 0
-        best_nuc = ''
-        for nuc in sequence_context_dict[pos]:
-            qual = sequence_context_dict[pos][nuc]
-            if qual > best_qual:
-                best_qual = qual
-                best_nuc = nuc
-        consensus += best_nuc
-    return consensus
+
 
 def index_genome(inferseq_assembly):
     if not bowtie2tools.genome_is_indexed(inferseq_assembly):

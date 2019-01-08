@@ -30,14 +30,14 @@ def cli():
 @cli.command(short_help='Find insertion sites and reconstruct flanks of inserted sequence', help_priority=1)
 @click.argument('bamfile', type=click.Path(exists=True))
 @click.option('--output_file', '-o', default='mustache.findflanks.tsv', help="The output file to save the results.")
-@click.option('--min_softclip_length', '-minlen', default=4, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
 @click.option('--min_softclip_count', '-mincount', default=4, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site.")
 @click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
-@click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + maximum direct repeat length.")
+@click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + max_direct_repeat_length.")
 @click.option('--min_distance_to_mate', '-mcc', default=22, help="A minimum distance to a potential nearby mate, filters out sites that have no pairs.")
 @click.option('--min_softclip_ratio', '-minratio', default=0.15, help="For a softclipped site to be considered, the proportion of softclipped sites must not fall below this value.")
 @click.option('--max_indel_ratio', '-maxindelratio', default=0.03, help="For a softclipped site to be considered, the proportion of small insertions/deletions at this site must not be above this value.")
 @click.option('--min_count_consensus', '-mcc', default=2, help="When building the consensus sequence, stop building consensus if read count drops below this cutoff.")
+@click.option('--min_softclip_length', '-minlen', default=8, help="For a softclipped site to be considered, there must be at least one softclipped read of this length.")
 def findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, min_alignment_inner_length,
                min_distance_to_mate, min_softclip_ratio, max_indel_ratio, min_count_consensus, output_file):
     """A click access point for the findflanks module. This is used for creating the command line interface."""
@@ -51,9 +51,14 @@ def findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_q
 @click.argument('bamfile', type=click.Path(exists=True))
 @click.argument('genome', type=click.Path(exists=True))
 @click.option('--max_direct_repeat_length', '-maxdr', default=20, help="The maximum length of a direct repeat to consider a pair.")
+@click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff.")
+@click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + maximum direct repeat length.")
+@click.option('--max_junction_spanning_prop', '-maxjsp', default=0.15, help="Removes pairs where this proportion of readsextend across both insertion junctions without softclipping, an indication that the site is a duplicated region.")
 @click.option('--output_file', '-o', default='mustache.pairflanks.tsv', help="The output file to save the results.")
-def pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_file=None):
-    _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, output_file)
+def pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, min_alignment_quality,
+               min_alignment_inner_length, max_junction_spanning_prop, output_file=None):
+    _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, min_alignment_quality,
+                min_alignment_inner_length, max_junction_spanning_prop, output_file)
 
 
 @cli.command(help_priority=3)

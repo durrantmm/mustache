@@ -41,7 +41,7 @@ def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_
     softclip_parser.make_consensus_sequences()
     softclip_parser.filter_consensus_sequences_minlength()
     softclip_parser.filter_consensus_sequences_mincount()
-    softclip_parser.filter_multiple_consensus_sequences()
+
     softclip_parser.filter_softclips_mindistance()
 
     final_df = softclip_parser.make_dataframe()
@@ -71,6 +71,7 @@ class SoftclipParser:
     max_indel_ratio = None
     min_count_consensus = None
 
+
     def __init__(self, bam, verbose=True, min_alignment_quality=20, min_alignment_inner_length=21,
                  min_softclip_length=4, min_softclip_count=4, min_distance_to_mate=22,
                  min_softclip_ratio=0.15, max_indel_ratio=0.03, min_count_consensus=2):
@@ -87,6 +88,7 @@ class SoftclipParser:
         self.min_softclip_ratio = min_softclip_ratio
         self.max_indel_ratio = max_indel_ratio
         self.min_count_consensus = min_count_consensus
+
 
     def parse_softclips(self):
 
@@ -113,6 +115,7 @@ class SoftclipParser:
 
 
     def filter_softclips_minlength(self):
+
         filtered_softclipped_sites = defaultdict(lambda: defaultdict(SoftclipSite))
 
         for contig in self.softclipped_sites:
@@ -140,15 +143,16 @@ class SoftclipParser:
 
         for contig in self.softclipped_sites:
             for pos in self.softclipped_sites[contig]:
-                if self.softclipped_sites[contig][pos].get_softclip_5p_count() < self.min_softclip_count:
-                    self.softclipped_sites[contig][pos].keep_softclips_5p = False
+                softclip_site = self.softclipped_sites[contig][pos]
 
-                if self.softclipped_sites[contig][pos].get_softclip_3p_count() < self.min_softclip_count:
-                    self.softclipped_sites[contig][pos].keep_softclips_3p = False
+                if softclip_site.get_softclip_5p_count() < self.min_softclip_count:
+                    softclip_site.keep_softclips_5p = False
 
-                if self.softclipped_sites[contig][pos].keep_softclips_5p or \
-                    self.softclipped_sites[contig][pos].keep_softclips_3p:
-                    filtered_softclipped_sites[contig][pos] = self.softclipped_sites[contig][pos]
+                if softclip_site.get_softclip_3p_count() < self.min_softclip_count:
+                    softclip_site.keep_softclips_3p = False
+
+                if softclip_site.keep_softclips_5p or softclip_site.keep_softclips_3p:
+                    filtered_softclipped_sites[contig][pos] = softclip_site
 
         self.softclipped_sites = filtered_softclipped_sites
 
@@ -178,8 +182,7 @@ class SoftclipParser:
                     if not self.has_nearby_5p_mate(pos, softclip_5p_positions[contig]):
                         softclip_site.keep_softclips_3p = False
 
-                if self.softclipped_sites[contig][pos].keep_softclips_5p or \
-                    self.softclipped_sites[contig][pos].keep_softclips_3p:
+                if softclip_site.keep_softclips_5p or softclip_site.keep_softclips_3p:
                     filtered_softclipped_sites[contig][pos] = softclip_site
 
         self.softclipped_sites = filtered_softclipped_sites
@@ -217,8 +220,7 @@ class SoftclipParser:
                         softclip_site.keep_softclips_5p = False
                         softclip_site.keep_softclips_3p = False
 
-                if self.softclipped_sites[contig][pos].keep_softclips_5p or \
-                    self.softclipped_sites[contig][pos].keep_softclips_3p:
+                if softclip_site.keep_softclips_5p or softclip_site.keep_softclips_3p:
                     filtered_softclipped_sites[contig][pos] = softclip_site
 
         self.softclipped_sites = filtered_softclipped_sites
@@ -237,12 +239,13 @@ class SoftclipParser:
             for pos in self.softclipped_sites[contig]:
                 softclip_site = self.softclipped_sites[contig][pos]
 
+
                 if softclip_site.keep_softclips_5p:
 
                     consensus_seqs = []
                     for consensus in softclip_site.consensus_sequences_5p:
 
-                        if consensus[0] >= self.min_softclip_length:
+                        if len(consensus[1]) >= self.min_softclip_length:
                             consensus_seqs.append(consensus)
 
                     softclip_site.consensus_sequences_5p = consensus_seqs
@@ -254,16 +257,16 @@ class SoftclipParser:
                     consensus_seqs = []
                     for consensus in softclip_site.consensus_sequences_3p:
 
-                        if consensus[0] >= self.min_softclip_length:
+                        if len(consensus[1]) >= self.min_softclip_length:
                             consensus_seqs.append(consensus)
 
                     softclip_site.consensus_sequences_3p = consensus_seqs
                     if len(consensus_seqs) == 0:
                         softclip_site.keep_softclips_3p = False
 
-                if self.softclipped_sites[contig][pos].keep_softclips_5p or \
-                        self.softclipped_sites[contig][pos].keep_softclips_3p:
+                if softclip_site.keep_softclips_5p or softclip_site.keep_softclips_3p:
                     filtered_softclipped_sites[contig][pos] = softclip_site
+
 
         self.softclipped_sites = filtered_softclipped_sites
 
@@ -302,8 +305,7 @@ class SoftclipParser:
                     if len(consensus_seqs) == 0:
                         softclip_site.keep_softclips_3p = False
 
-                if self.softclipped_sites[contig][pos].keep_softclips_5p or \
-                        self.softclipped_sites[contig][pos].keep_softclips_3p:
+                if softclip_site.keep_softclips_5p or softclip_site.keep_softclips_3p:
                     filtered_softclipped_sites[contig][pos] = softclip_site
 
         self.softclipped_sites = filtered_softclipped_sites
@@ -328,8 +330,7 @@ class SoftclipParser:
                 if len(softclip_site.consensus_sequences_3p) > 1:
                     softclip_site.keep_softclips_3p = False
 
-                if self.softclipped_sites[contig][pos].keep_softclips_5p or \
-                        self.softclipped_sites[contig][pos].keep_softclips_3p:
+                if softclip_site.keep_softclips_5p or softclip_site.keep_softclips_3p:
                     filtered_softclipped_sites[contig][pos] = softclip_site
 
         self.softclipped_sites = filtered_softclipped_sites
@@ -348,33 +349,35 @@ class SoftclipParser:
         for contig in self.softclipped_sites:
             for pos in self.softclipped_sites[contig]:
 
+                softclip_site = self.softclipped_sites[contig][pos]
+
                 reads_at_site = self.get_reads_at_site(contig, pos)
 
-                runthrough_count, insertion_5p_count, insertion_3p_count, deletion_count = \
+                runthrough_reads, insertion_5p_reads, insertion_3p_reads, deletion_reads = \
                     self.get_unclipped_read_info_at_site(contig, pos, reads_at_site)
 
-                self.softclipped_sites[contig][pos].add_runthrough_count(runthrough_count)
-                self.softclipped_sites[contig][pos].add_insertion_5p_count(insertion_5p_count)
-                self.softclipped_sites[contig][pos].add_insertion_3p_count(insertion_3p_count)
-                self.softclipped_sites[contig][pos].add_deletion_count(deletion_count)
+                softclip_site.add_runthrough_reads(runthrough_reads)
+                softclip_site.add_insertion_5p_reads(insertion_5p_reads)
+                softclip_site.add_insertion_3p_reads(insertion_3p_reads)
+                softclip_site.add_deletion_reads(deletion_reads)
 
-                upstream_runthrough_count, upstream_insertion_5p_count, upstream_insertion_3p_count, upstream_deletion_count = None, None, None, None
-                downstream_runthrough_count, downstream_insertion_5p_count, downstream_insertion_3p_count, downstream_deletion_count = None, None, None, None
+                upstream_runthrough_reads, upstream_insertion_5p_reads, upstream_insertion_3p_reads, upstream_deletion_reads = None, None, None, None
+                downstream_runthrough_reads, downstream_insertion_5p_reads, downstream_insertion_3p_reads, downstream_deletion_reads = None, None, None, None
 
 
                 if pos - 1 >= 0:
-                    upstream_runthrough_count, upstream_insertion_5p_count, upstream_insertion_3p_count, upstream_deletion_count = \
-                        self.get_unclipped_read_info_at_site(contig, pos + 1, reads_at_site)
+                    upstream_runthrough_reads, upstream_insertion_5p_reads, upstream_insertion_3p_reads, upstream_deletion_reads = \
+                        self.get_unclipped_read_info_at_site(contig, pos - 1, reads_at_site)
 
                 if pos + 1 < self.contig_lengths[contig]:
-                    downstream_runthrough_count, downstream_insertion_5p_count, downstream_insertion_3p_count, downstream_deletion_count = \
+                    downstream_runthrough_reads, downstream_insertion_5p_reads, downstream_insertion_3p_reads, downstream_deletion_reads = \
                         self.get_unclipped_read_info_at_site(contig, pos + 1, reads_at_site)
 
-                if upstream_deletion_count:
-                    self.softclipped_sites[contig][pos].add_upstream_deletion_count(upstream_deletion_count)
+                if upstream_deletion_reads:
+                    softclip_site.add_upstream_deletion_reads(upstream_deletion_reads)
 
-                if downstream_deletion_count:
-                    self.softclipped_sites[contig][pos].add_downstream_deletion_count(downstream_deletion_count)
+                if downstream_deletion_reads:
+                    softclip_site.add_downstream_deletion_reads(downstream_deletion_reads)
 
 
     def get_reads_at_site(self, contig, pos):
@@ -390,22 +393,20 @@ class SoftclipParser:
             end = self.contig_lengths[contig]
 
         for read in self.bam.fetch(contig, start, end):
-            reads.append(read)
+            if self.passes_read_filters(read):
+                reads.append(read)
 
         return reads
 
 
     def get_unclipped_read_info_at_site(self, contig, pos, reads):
 
-        runthrough_count = 0
-        insertion_5p_count = 0
-        insertion_3p_count = 0
-        deletion_count = 0
+        runthrough_reads = set()
+        insertion_5p_reads = set()
+        insertion_3p_reads = set()
+        deletion_reads = set()
 
         for read in reads:
-
-            if not self.passes_read_filters(read):
-                continue
 
             if sctools.is_softclipped_lenient_at_site(read, contig, pos):
                 continue
@@ -414,15 +415,15 @@ class SoftclipParser:
             if processed_read is None:
                 continue
             elif processed_read == 'runthrough':
-                runthrough_count += 1
+                runthrough_reads.add(read.query_name)
             elif processed_read == 'insertion_5p':
-                insertion_5p_count += 1
+                insertion_5p_reads.add(read.query_name)
             elif processed_read == 'insertion_3p':
-                insertion_3p_count += 1
+                insertion_3p_reads.add(read.query_name)
             else:
-                deletion_count += 1
+                deletion_reads.add(read.query_name)
 
-        return runthrough_count, insertion_5p_count, insertion_3p_count, deletion_count
+        return runthrough_reads, insertion_5p_reads, insertion_3p_reads, deletion_reads
 
 
     def process_aligned_blocks_at_site(self, position, blocks):
@@ -549,7 +550,6 @@ class SoftclipParser:
         contig, pos = sctools.right_softclipped_site_lenient(read)
         self.softclipped_sites[contig][pos].add_softclip_5p(read, meets_minlength)
 
-
     def parse_left_softclipped_read(self, read):
         meets_minlength = self.meets_minlength_left(read)
         contig, pos = sctools.left_softclipped_site_lenient(read)
@@ -602,18 +602,18 @@ class SoftclipParser:
 
                         outdata[len(outdata)] = [
                             contig, pos, '5p', site.get_softclip_5p_count(), site.get_softclip_3p_count(),
-                            site.runthrough_count, site.insertion_5p_count, site.insertion_3p_count,
-                            site.deletion_count, site.upstream_deletion_count, site.downstream_deletion_count,
-                            site.total_count, consensus_sequence[0], consensus_sequence[1]
+                            site.get_runthrough_count(), site.get_insertion_5p_count(), site.get_insertion_3p_count(),
+                            site.get_deletion_count(), site.get_upstream_deletion_count(), site.get_downstream_deletion_count(),
+                            site.get_total_count(), consensus_sequence[0], consensus_sequence[1]
                         ]
 
                 if site.keep_softclips_3p:
                     for consensus_sequence in site.consensus_sequences_3p:
                         outdata[len(outdata)] = [
                             contig, pos, '3p', site.get_softclip_5p_count(), site.get_softclip_3p_count(),
-                            site.runthrough_count, site.insertion_5p_count, site.insertion_3p_count,
-                            site.deletion_count, site.upstream_deletion_count, site.downstream_deletion_count,
-                            site.total_count, consensus_sequence[0], consensus_sequence[1]
+                            site.get_runthrough_count(), site.get_insertion_5p_count(), site.get_insertion_3p_count(),
+                            site.get_deletion_count(), site.get_upstream_deletion_count(), site.get_downstream_deletion_count(),
+                            site.get_total_count(), consensus_sequence[0], consensus_sequence[1]
                         ]
 
         out_df = pd.DataFrame.from_dict(outdata, orient='index', columns=column_names)
@@ -628,13 +628,10 @@ class SoftclipParser:
         for contig in self.softclipped_sites:
             for pos in self.softclipped_sites[contig]:
                 site = self.softclipped_sites[contig][pos]
-                if site.total_count > 0:
-                    print('{contig}\t{pos}\t'.format(contig=contig, pos=pos) + str(site), file=sys.stderr)
+                print('{contig}\t{pos}\t'.format(contig=contig, pos=pos) + str(site), file=sys.stderr)
 
 
 class SoftclipSite:
-
-    total_count = None
 
     softclip_5p_reads = None
     softclip_3p_reads = None
@@ -642,12 +639,12 @@ class SoftclipSite:
     meets_minlength_5p = None
     meets_minlength_3p = None
 
-    insertion_5p_count = None
-    insertion_3p_count = None
-    runthrough_count = None
-    deletion_count = None
-    upstream_deletion_count = None
-    downstream_deletion_count = None
+    insertion_5p_reads = None
+    insertion_3p_reads = None
+    runthrough_reads = None
+    deletion_reads = None
+    upstream_deletion_reads = None
+    downstream_deletion_reads = None
 
     keep_softclips_5p = None
     keep_softclips_3p = None
@@ -656,19 +653,18 @@ class SoftclipSite:
     consensus_sequences_3p = None
 
     def __init__(self):
-        self. total_count = 0
-        self.softclip_5p_reads = set()
-        self.softclip_3p_reads = set()
+        self.softclip_5p_reads = defaultdict(set)
+        self.softclip_3p_reads = defaultdict(set)
 
         self.meets_minlength_5p = False
         self.meets_minlength_3p = False
 
-        self.insertion_5p_count = 0
-        self.insertion_3p_count = 0
-        self.runthrough_count = 0
-        self.deletion_count = 0
-        self.upstream_deletion_count = 0
-        self.downstream_deletion_count = 0
+        self.insertion_5p_reads = set()
+        self.insertion_3p_reads = set()
+        self.runthrough_reads = set()
+        self.deletion_reads = set()
+        self.upstream_deletion_reads = set()
+        self.downstream_deletion_reads = set()
 
         self.keep_softclips_5p = True
         self.keep_softclips_3p = True
@@ -677,56 +673,59 @@ class SoftclipSite:
         self.consensus_sequences_3p = []
 
     def add_softclip_5p(self, read, meets_minlength):
-        self.softclip_5p_reads.add(read)
-        self.total_count += 1
+        self.softclip_5p_reads[read.query_name].add(read)
 
         if not self.meets_minlength_5p and meets_minlength:
             self.meets_minlength_5p = True
 
+    def add_softclip_5p_reads(self, reads):
+        for read in reads:
+            self.softclip_5p_reads[read.query_name].add(read)
+
     def add_softclip_3p(self, read, meets_minlength):
-        self.softclip_3p_reads.add(read)
-        self.total_count += 1
+        self.softclip_3p_reads[read.query_name].add(read)
 
         if not self.meets_minlength_3p and meets_minlength:
             self.meets_minlength_3p = True
 
-    def add_runthrough(self):
-        self.runthrough_count += 1
-        self.total_count += 1
+    def add_softclip_3p_reads(self, reads):
+        for read in reads:
+            self.softclip_3p_reads[read.query_name].add(read)
 
-    def add_runthrough_count(self, count):
-        self.runthrough_count += count
-        self.total_count += count
+    def add_runthrough(self, read):
+        self.runthrough_reads.add(read.query_name)
 
-    def add_insertion_5p(self):
-        self.insertion_5p_count += 1
-        self.total_count += 1
+    def add_runthrough_reads(self, reads):
+        self.runthrough_reads.update(reads)
 
-    def add_insertion_5p_count(self, count):
-        self.insertion_5p_count += count
-        self.total_count += count
+    def add_insertion_5p(self, read):
+        self.insertion_5p_reads.add(read.query_name)
 
-    def add_insertion_3p(self):
-        self.insertion_3p_count += 1
-        self.total_count += 1
+    def add_insertion_5p_reads(self, reads):
+        self.insertion_5p_reads.update(reads)
 
-    def add_insertion_3p_count(self, count):
-        self.insertion_3p_count += count
-        self.total_count += count
+    def add_insertion_3p(self, read):
+        self.insertion_3p_reads.add(read.query_name)
 
-    def add_deletion(self):
-        self.deletion_count += 1
-        self.total_count += 1
+    def add_insertion_3p_reads(self, reads):
+        self.insertion_3p_reads.update(reads)
 
-    def add_deletion_count(self, count):
-        self.deletion_count += count
-        self.total_count += count
+    def add_deletion(self, read):
+        self.deletion_reads.add(read.query_name)
 
-    def add_upstream_deletion_count(self, count):
-        self.upstream_deletion_count += count
+    def add_deletion_reads(self, reads):
+        self.deletion_reads.update(reads)
 
-    def add_downstream_deletion_count(self, count):
-        self.downstream_deletion_count += count
+    def add_upstream_deletion_reads(self, reads):
+        self.upstream_deletion_reads.update(reads)
+
+    def add_downstream_deletion_reads(self, reads):
+        self.downstream_deletion_reads.update(reads)
+
+    def get_total_count(self):
+        total_count = self.get_softclip_5p_count() + self.get_softclip_3p_count() + self.get_runthrough_count() + \
+            self.get_insertion_5p_count()   + self.get_insertion_3p_count() + self.get_deletion_count()
+        return total_count
 
     def get_softclip_5p_count(self):
         return len(self.softclip_5p_reads)
@@ -734,34 +733,49 @@ class SoftclipSite:
     def get_softclip_3p_count(self):
         return len(self.softclip_3p_reads)
 
+    def get_runthrough_count(self):
+        return len(self.runthrough_reads)
+
+    def get_insertion_5p_count(self):
+        return len(self.insertion_5p_reads)
+
+    def get_insertion_3p_count(self):
+        return len(self.insertion_3p_reads)
+
+    def get_deletion_count(self):
+        return len(self.deletion_reads)
+
+    def get_upstream_deletion_count(self):
+        return len(self.upstream_deletion_reads)
+
+    def get_downstream_deletion_count(self):
+        return len(self.downstream_deletion_reads)
+
     def get_softclip_ratio_5p(self):
-        return len(self.softclip_5p_reads) / self.total_count
+        return self.get_softclip_5p_count() / self.get_total_count()
 
     def get_softclip_ratio_3p(self):
-        return len(self.softclip_3p_reads) / self.total_count
+        return self.get_softclip_3p_count() / self.get_total_count()
 
     def get_upstream_deletion_ratio(self):
-        return self.upstream_deletion_count / self.total_count
+        return self.get_upstream_deletion_count() / self.get_total_count()
 
     def get_downstream_deletion_ratio(self):
-        return self.downstream_deletion_count / self.total_count
-
-    def get_softclip_ratio_3p(self):
-        return len(self.softclip_3p_reads) / self.total_count
+        return self.get_downstream_deletion_count() / self.get_total_count()
 
     def get_indel_ratio_5p(self):
-        return (self.insertion_5p_count + self.deletion_count) / self.total_count
+        return (self.get_insertion_5p_count() + self.get_deletion_count()) / self.get_total_count()
 
     def get_indel_ratio_3p(self):
-        return (self.insertion_3p_count + self.deletion_count) / self.total_count
+        return (self.get_insertion_3p_count() + self.get_deletion_count()) / self.get_total_count()
 
     def __str__(self):
         outstring = '{total}\t{runthrough_count}\t{softclip_5p_count}\t{softclip_3p_count}' \
                     '\t{insertions_5p_count}\t{insertions_3p_count}\t{deletion_count}'.format(
-            total=self.total_count, runthrough_count=self.runthrough_count,
-            softclip_5p_count=len(self.softclip_5p_reads), softclip_3p_count=len(self.softclip_3p_reads),
-            insertions_5p_count=self.insertion_5p_count, insertions_3p_count=self.insertion_3p_count,
-            deletion_count=self.deletion_count)
+            total=self.get_total_count(), runthrough_count=self.get_runthrough_count(),
+            softclip_5p_count=self.get_softclip_5p_count(), softclip_3p_count=self.get_softclip_3p_count(),
+            insertions_5p_count=self.get_insertion_5p_count(), insertions_3p_count=self.get_insertion_3p_count(),
+            deletion_count=self.get_deletion_count())
 
         return outstring
 
@@ -823,14 +837,131 @@ class SoftclipConsensus:
         self.softclipped_qualities = []
 
         for read in self.reads:
-
+            reads = self.reads[read]
             if self.orient == '3p':
-                self.softclipped_seqs.append(sctools.left_softclipped_sequence(read)[::-1])
-                self.softclipped_qualities.append(sctools.left_softclip_qualities(read)[::-1])
+
+                seq, quals = self.combine_softclip_seq_quals_3p(reads)
 
             elif self.orient == '5p':
-                self.softclipped_seqs.append(sctools.right_softclipped_sequence(read))
-                self.softclipped_qualities.append(sctools.right_softclip_qualities(read))
+
+                seq, quals = self.combine_softclip_seq_quals_5p(reads)
+
+            self.softclipped_seqs.append(seq)
+            self.softclipped_qualities.append(quals)
+
+
+    def combine_softclip_seq_quals_3p(self, reads):
+
+        if len(reads) == 1:
+            read = reads.pop()
+            return sctools.left_softclipped_sequence(read)[::-1], sctools.left_softclip_qualities(read)[::-1]
+
+        elif len(reads) == 2:
+            read1 = reads.pop()
+            read2 = reads.pop()
+
+            read1_qualities = sctools.left_softclip_qualities(read1)[::-1]
+            read2_qualities = sctools.left_softclip_qualities(read2)[::-1]
+
+            read1_clipped_seq = sctools.left_softclipped_sequence(read1)[::-1]
+            read2_clipped_seq = sctools.left_softclipped_sequence(read2)[::-1]
+
+            outseq = ''
+            outquals = []
+
+            for pos in range(max([len(read1_qualities), len(read2_qualities)])):
+
+                if pos < len(read1_qualities) and pos < len(read2_qualities):
+                    qual1, qual2 = read1_qualities[pos], read2_qualities[pos]
+                    char1, char2 = read1_clipped_seq[pos], read2_clipped_seq[pos]
+
+                    if qual1 >= qual2:
+                        outquals.append(qual1)
+                        outseq += char1
+                    else:
+                        outquals.append(qual2)
+                        outseq += char2
+
+                elif pos < len(read1_qualities):
+                    outquals.append(read1_qualities[pos])
+                    outseq += read1_clipped_seq[pos]
+                elif pos < len(read2_qualities):
+                    outquals.append(read2_qualities[pos])
+                    outseq += read2_clipped_seq[pos]
+                else:
+                    print('ERROR: YOU MISSED SOMETHING')
+                    sys.exit()
+
+
+            #print(read1_qualities)
+            #print(read2_qualities)
+            #print(outquals)
+            #print(read1_clipped_seq)
+            #print(read2_clipped_seq)
+            #print(outseq)
+            #print()
+
+            return outseq, outquals
+        else:
+            print("READ NUMBER ERROR - ZERO OR MORE THAN TWO READS ASSOCIATED WITH QUERY NAME")
+            sys.exit()
+
+
+    def combine_softclip_seq_quals_5p(self, reads):
+
+        if len(reads) == 1:
+            read = reads.pop()
+            return sctools.right_softclipped_sequence(read), sctools.right_softclip_qualities(read)
+
+        elif len(reads) == 2:
+            read1 = reads.pop()
+            read2 = reads.pop()
+
+            read1_qualities = sctools.right_softclip_qualities(read1)
+            read2_qualities = sctools.right_softclip_qualities(read2)
+
+            read1_clipped_seq = sctools.right_softclipped_sequence(read1)
+            read2_clipped_seq = sctools.right_softclipped_sequence(read2)
+
+            outseq = ''
+            outquals = []
+
+            for pos in range(max([len(read1_qualities), len(read2_qualities)])):
+
+                if pos < len(read1_qualities) and pos < len(read2_qualities):
+                    qual1, qual2 = read1_qualities[pos], read2_qualities[pos]
+                    char1, char2 = read1_clipped_seq[pos], read2_clipped_seq[pos]
+
+                    if qual1 >= qual2:
+                        outquals.append(qual1)
+                        outseq += char1
+                    else:
+                        outquals.append(qual2)
+                        outseq += char2
+
+                elif pos < len(read1_qualities):
+                    outquals.append(read1_qualities[pos])
+                    outseq += read1_clipped_seq[pos]
+                elif pos < len(read2_qualities):
+                    outquals.append(read2_qualities[pos])
+                    outseq += read2_clipped_seq[pos]
+                else:
+                    print('ERROR: YOU MISSED SOMETHING')
+                    sys.exit()
+
+            #print(read1_qualities)
+            #print(read2_qualities)
+            #print(outquals)
+            #print(read1_clipped_seq)
+            #print(read2_clipped_seq)
+            #print(outseq)
+            #print()
+
+            return outseq, outquals
+        else:
+            print("READ NUMBER ERROR - ZERO OR MORE THAN TWO READS ASSOCIATED WITH QUERY NAME")
+            sys.exit()
+
 
 
     def get_sequence_clusters(self, sequence_dict, perc_similarity=0.75):

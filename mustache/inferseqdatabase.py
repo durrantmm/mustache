@@ -34,7 +34,8 @@ def _inferseq_database(pairsfile, fasta_database, min_perc_identity, max_interna
 
     tmp_dir = dirname(output_file)
 
-    pairs = pd.read_csv(pairsfile, sep='\t')
+    pairs = pd.read_csv(pairsfile, sep='\t', keep_default_na=False, na_values=[
+        '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A','N/A', '#NA', 'NULL', 'NaN', '-NaN', 'nan', '-nan'])
     handle_empty_pairsfile(pairs, output_file)
 
     logger.info("Aligning pairs to database...")
@@ -43,7 +44,7 @@ def _inferseq_database(pairsfile, fasta_database, min_perc_identity, max_interna
     bowtie2tools.align_fasta_to_genome(
         assembly_flanks_fasta_prefix + '.fasta',
         fasta_database, assembly_outbam, silence=True,
-        additional_flags='--all --score-min G,1,5.5'
+        additional_flags='--all --score-min G,1,5'
     )
 
     logger.info("Inferring sequences from pairs aligned to database...")
@@ -183,12 +184,15 @@ def get_pairs(reads, database_dict, length_difference_max):
 
             if len(reads[pair][ref]['1']) > 0 and \
                 len(reads[pair][ref]['2']) > 0 and \
-                len(reads[pair][ref]['1']) == len(reads[pair][ref]['2']) and \
-                mapped_both_ends(reads[pair][ref]['1'], reads[pair][ref]['2'], database_dict, length_difference_max):
+                reads_mapped_both_ends(reads[pair][ref]['1'], reads[pair][ref]['2'], database_dict, length_difference_max):
 
                 pairs = match_pairs(reads[pair][ref]['1'], reads[pair][ref]['2'])
 
+
                 for p in pairs:
+
+                    if not pair_mapped_both_ends(p, database_dict, length_difference_max):
+                        continue
 
                     if p[0].is_reverse and (not p[1].is_reverse):
                         keep_reads[pair].append((p[1], p[0]))
@@ -199,17 +203,61 @@ def get_pairs(reads, database_dict, length_difference_max):
     return keep_reads
 
 
-def mapped_both_ends(reads1, reads2, database_dict, length_difference_max):
-    fiveprime_count = 0
-    threeprime_count = 0
+def reads_mapped_both_ends(reads1, reads2, database_dict, length_difference_max):
+    fiveprime_read1_count = 0
+    fiveprime_read2_count = 0
+    threeprime_read1_count = 0
+    threeprime_read2_count = 0
+
 
     for read in reads1 + reads2:
         if read.is_reverse and (len(database_dict[read.reference_name]) - read.reference_end) <= length_difference_max:
-            threeprime_count += 1
-        elif not read.is_reverse and read.reference_start <= length_difference_max:
-            fiveprime_count += 1
 
-    if fiveprime_count > 0 and threeprime_count > 0:
+            if read.query_name.split('_')[-1] == '1':
+                threeprime_read1_count += 1
+            else:
+                threeprime_read2_count += 1
+        elif not read.is_reverse and read.reference_start <= length_difference_max:
+            if read.query_name.split('_')[-1] == '1':
+                fiveprime_read1_count += 1
+            else:
+                fiveprime_read2_count += 1
+
+    if (fiveprime_read1_count > 0 and threeprime_read2_count > 0) or \
+        (threeprime_read1_count > 0 and fiveprime_read2_count > 0):
+        return True
+    else:
+        return False
+
+def pair_mapped_both_ends(pair, database_dict, length_difference_max):
+    has_fiveprime_read1 = False
+    has_fiveprime_read2 = False
+    has_threeprime_read1 = False
+    has_threeprime_read2 = False
+
+    read1, read2 = pair
+
+
+    if read1.is_reverse and (len(database_dict[read1.reference_name]) - read1.reference_end) <= length_difference_max:
+
+        has_threeprime_read1 = True
+
+    elif not read1.is_reverse and read1.reference_start <= length_difference_max:
+
+        has_fiveprime_read1 = True
+
+
+    if read2.is_reverse and (len(database_dict[read2.reference_name]) - read2.reference_end) <= length_difference_max:
+
+        has_threeprime_read2 = True
+
+    elif not read2.is_reverse and read2.reference_start <= length_difference_max:
+
+        has_fiveprime_read2 = True
+
+
+    if (has_fiveprime_read1 and has_threeprime_read2) or \
+            (has_threeprime_read1 and has_fiveprime_read2):
         return True
     else:
         return False

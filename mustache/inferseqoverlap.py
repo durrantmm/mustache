@@ -20,7 +20,8 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 def _inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, output_file):
 
-    pairs = pd.read_csv(pairsfile, sep='\t')
+    pairs = pd.read_csv(pairsfile, sep='\t', keep_default_na=False, na_values=[
+        '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A','N/A', '#NA', 'NULL', 'NaN', '-NaN', 'nan', '-nan'])
     handle_empty_pairsfile(pairs, output_file)
 
     logger.info("Inferring sequences from overlap...")
