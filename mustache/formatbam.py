@@ -95,4 +95,4 @@ def _formatbam(in_sam, out_bam, single_end, keep_tmp_files):
 
 
 if __name__ == '__main__':
-    formatbam()
+    _formatbam()

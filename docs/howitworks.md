@@ -4,9 +4,9 @@
 The *mustache* workflow is described by the schematic below:
 ![alt text](img/workflow.png)
 
-All that is required is a reference genome and short-read (less than 300 bp) sequencing data of the orgnaism under study.
+All that is required is a reference genome and short-read (less than 300 bp) sequencing data of the organism under study.
 
-The *mustache* software suite provides tools to perform most of the analyses above, including:
+The *mustache* software suite provides tools to perform most of the analyses depicted above, including:
 
 * Identifying candidate insertion sites and generates consensus sequence of insertion flanks (see `findflanks` and command)
 * Pairs candidate insertion flanks with each other (see `pairflanks` command)
@@ -19,16 +19,18 @@ The *mustache* software suite provides tools to perform most of the analyses abo
 It does NOT perform the following steps:
 * Alignment of isolate to sample (We recommend [BWA MEM](http://bio-bwa.sourceforge.net/) for this step.)
 * Assembly of short-read sequencing reads (We recommend [SPAdes](http://cab.spbu.ru/software/spades/) for this step.)
+* Clustering of identified sequences by similarity (We recommend [CD-HIT-EST](http://weizhongli-lab.org/cd-hit/)).
 
 
 ## Limitations
-Identifying large structural variants from short-read sequencing data is always inferential task. 
-The insertions identified in this pipeline are often inferred, but we try to increase our sensitivity by combining several 
+Identifying large structural variants from short-read sequencing data is always an inferential task. 
+The insertions identified in this pipeline are inferred, but we try to increase our sensitivity by combining several 
 different inference approaches. However, there are limitations that should be taken into account with this analysis, such as:
 
 1. We only identify those insertions that occur within the reference genome used.
 2. We usually cannot know the full identity of the inserted sequence if it greatly exceeds the libraries read length and fragment size. 
 We can only know the identity of its flanks.
+3. More complicated insertions, such as insertions within insertions, are likely to be missed, especially if they are of repetetive elements.
 
 For more detailed information on how mustache works, see the [tutorial](tutorial.md) and the [manual](manual.md).
 
