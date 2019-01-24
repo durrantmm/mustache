@@ -1,6 +1,6 @@
 [Back to main page](../README.md)  
 
-# Installing Mustache
+# Installing *mustache*
 First, install [miniconda3](https://conda.io/en/master/miniconda.html). This is an environment management system that should keep everything organized.
 
 Once installed, clone this github directory to some location where it can be stored permanently.
