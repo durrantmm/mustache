@@ -28,9 +28,7 @@ The insertions identified in this pipeline are inferred, but we try to increase 
 different inference approaches. However, there are limitations that should be taken into account with this analysis, such as:
 
 1. We only identify those insertions that occur within the reference genome used.
-2. We usually cannot know the full identity of the inserted sequence if it greatly exceeds the libraries read length and fragment size. 
-We can only know the identity of its flanks.
-3. More complicated insertions, such as insertions within insertions, are likely to be missed, especially if they are of repetetive elements.
+2. More complicated insertions, such as insertions within insertions, are likely to be missed, especially if they include repetitive elements and cannot be assembled within the expected sequence context.
 
 For more detailed information on how mustache works, see the [tutorial](tutorial.md) and the [manual](manual.md).
 
