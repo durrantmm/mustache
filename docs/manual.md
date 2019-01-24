@@ -6,14 +6,16 @@ We now describe each of the *mustache* commands.
 
 This command finds insertion sites and reconstructs the flanks of inserted sequence
 
-The findflanks command takes a BAM file as input. A local alignment algorithm, such as [BWA MEM](http://bio-bwa.sourceforge.net/)
+The findflanks command takes a BAM file as input. A local alignment algorithm, such as 
+[BWA MEM](http://bio-bwa.sourceforge.net/)
 should be used to generate this BAM file.
 
 You can run the command as
 
     mustache findflanks BAMFILE
     
-The findflanks algorithm works by identifying candidate insertion sites by searching for clipped-end sites in locally aligned reads.
+The findflanks algorithm works by identifying candidate insertion sites by searching for clipped-end sites in locally 
+aligned reads.
 It then filters sites according to a variety of user-specified parameters, such as
 
     -minlen, --min_softclip_length
@@ -32,7 +34,8 @@ It requires that for a clipped site to be considered it must be supported by at 
 The default used is 4.
 
 The parameter `min_count_consensus` takes an integer.
-When generating a consensus sequence for the insertion flank, it requires that each site must have at least this many reads supporting it.
+When generating a consensus sequence for the insertion flank, it requires that each site must have at least this many 
+reads supporting it.
 The default used is 2.
 
 The parameter `min_alignment_quality` takes an integer.
@@ -52,16 +55,22 @@ Additionally, we filter insertion flanks to only include sites with nearby, oppo
 This reduces computation time considerably.
 
 
-To generate a consensus sequence of the candidate flank, we use a trie-based approach intended to filter out spurious reads when
-building a consensus sequence.  This also allows our algorithm to distinguish between multiple insertions at a single site,
+To generate a consensus sequence of the candidate flank, we use a trie-based approach intended to filter out spurious 
+reads when
+building a consensus sequence.  This also allows our algorithm to distinguish between multiple insertions at a single 
+site,
 which may be observed in a metagenomic sample, for example.
 
-Briefly, we build a sequence Trie of all of the reads found clipped at a given site. We then generate all of the unique, complete
-sequences by traversing the trie. We then cluster these sequences together by sequence similarity, and process the different clusters
+Briefly, we build a sequence Trie of all of the reads found clipped at a given site. We then generate all of the 
+unique, complete
+sequences by traversing the trie. We then cluster these sequences together by sequence similarity, and process the 
+different clusters
 separately.
 
-We then generate a consensus sequence for a given insertion flank by traversing down the trie, choosing the base with the most support at each step.
-Evidence for a given base is calculated as the sum of all base-pair quality scores originally reported in the FASTQ file.
+We then generate a consensus sequence for a given insertion flank by traversing down the trie, choosing the base with 
+the most support at each step.
+Evidence for a given base is calculated as the sum of all base-pair quality scores originally reported in the FASTQ 
+file.
 The consensus sequence ends when the number of reads supporting a position drops below `min_count_consensus`.
 
 Here is an example output file:
@@ -94,7 +103,8 @@ Here is a description of each column:
                        This is typically 50% of the number of softclipped reads.
     consensus_seq - The consensus sequence of the flank insertion at the specified site.
 
-This intermediate file is likely not valuable to users on its own, which is why we need to pair insertion flanks, as in the following command.
+This intermediate file is likely not valuable to users on its own, which is why we need to pair insertion flanks, as in 
+the following command.
 
 ## `pairflanks`
 This command pairs identified insertion flanks with eachother to represent the 5' and 3' ends of inserted sequence.
@@ -103,28 +113,37 @@ You can run the command as
 
     mustache pairflanks FLANKSFILE BAMFILE GENOME
 
-Where `FLANKSFILE` is the output of the `findflanks` command, `BAMFILE` is the binary sequence alignment file used as input
+Where `FLANKSFILE` is the output of the `findflanks` command, `BAMFILE` is the binary sequence alignment file used as 
+input
 for `findflanks`, and `GENOME` is the reference genome that `BAMFILE` was aligned to.
 
 One important additional parameter is 
 
     -maxdr, --max_direct_repeat_length
     
-which specifies the maximum distance that insertion flanks can be from each other in order to consider pairing them together.
-Since insertions often cause direct repeats at the insertion site, the location of the insertion flanks are often seperated by several base pairs.
-The default for this parameter is 20. This means that our algorithm will not identify true insertions that create direct repeats that exceed 20 base pairs.
+which specifies the maximum distance that insertion flanks can be from each other in order to consider pairing them 
+together.
+Since insertions often cause direct repeats at the insertion site, the location of the insertion flanks are often 
+seperated by several base pairs.
+The default for this parameter is 20. This means that our algorithm will not identify true insertions that create 
+direct repeats that exceed 20 base pairs.
 
-The `pairflanks` command uses a variety of techniques to pair flanks with each other. It first filters insertion flanks by the
-`--max_direct_repeat_length` parameter. It then does pairwise comparisons between all nearby, oppositely-oriented insertion flanks
+The `pairflanks` command uses a variety of techniques to pair flanks with each other. It first filters insertion flanks 
+by the
+`--max_direct_repeat_length` parameter. It then does pairwise comparisons between all nearby, oppositely-oriented 
+insertion flanks
 to determine if they share inverted repeats at their termini, a common feature of many prokaryotic insertion sequences.
 It then prioritizes all pairs by the following parameters, in order: 
-1. The length of the inverted repeat identified, if any. Pairs with longer shared inverted repeats receive higher priority.
+1. The length of the inverted repeat identified, if any. Pairs with longer shared inverted repeats receive higher 
+priority.
 2. The difference in the length of the recovered insertion flanks. 
-If the two insertion flanks have very similar lengths, they are given higher priority than pairs with disparate flank lengths.
+If the two insertion flanks have very similar lengths, they are given higher priority than pairs with disparate flank 
+lengths.
 3. The difference in the number of softclipped reads that support the insertion flanks. 
 Pairs that have a similar number of reads supporting each flank are given higher priority.
 
-We realize that these are somewhat arbitrary filters, and we plan to improve upon this pairing prioritization in the future.
+We realize that these are somewhat arbitrary filters, and we plan to improve upon this pairing prioritization in the 
+future.
 
 ## `inferseq-assembly`
 ![alt text](img/inferseqassembly.png)
