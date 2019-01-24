@@ -239,11 +239,6 @@ class FlankPairer:
         assigned_pairs = sorted_pairs.query("keep_pair == True").loc[:,
                          self.get_header_list()].sort_values(['contig', 'pos_5p', 'pos_3p'])
 
-        #assigned_pairs = sorted_pairs.query("keep_pair == True").loc[:,
-        #                 ['contig', 'pos_5p', 'pos_3p', 'softclip_count_5p', 'softclip_count_3p', 'total_count_5p',
-        #                  'total_count_3p', 'has_IR', 'IR_length', 'IR_5p', 'IR_3p',
-        #                  'seq_5p', 'seq_3p']].sort_values(['contig', 'pos_5p', 'pos_3p'])
-
         return assigned_pairs
 
 
