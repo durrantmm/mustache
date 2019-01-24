@@ -2,7 +2,9 @@
 
 We now describe each of the *mustache* commands.
 ## `findflanks`
-This command finds insertion sites and reconstruct flanks of inserted sequence
+![alt text](img/findflanks.png)
+
+This command finds insertion sites and reconstructs the flanks of inserted sequence
 
 The findflanks command takes a BAM file as input. A local alignment algorithm, such as [BWA MEM](http://bio-bwa.sourceforge.net/)
 should be used to generate this BAM file.
@@ -125,12 +127,15 @@ Pairs that have a similar number of reads supporting each flank are given higher
 We realize that these are somewhat arbitrary filters, and we plan to improve upon this pairing prioritization in the future.
 
 ## `inferseq-assembly`
+![alt text](img/inferseqassembly.png)
 
 ## `inferseq-reference`
+![alt text](img/inferseqreference.png)
 
 ## `inferseq-overlap`
 
 ## `inferseq-database`
+![alt text](img/inferseqdatabase.png)
 
 ## `formatbam`
 
