@@ -227,3 +227,4 @@ used an upper cutoff of 10 kilobase pairs in our own analysis.
 
 Good luck, and if you have any questions please submit an issue [here](https://github.com/durrantmm/mustache/issues).
 
+[NEXT: Detailed User Manual](manual.md)

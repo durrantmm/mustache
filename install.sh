@@ -8,12 +8,6 @@ conda env remove -n mustache --yes
 
 echo "Installing mustache environment..."
 conda env create -f envs/environment.yml
-echo "Entering new mustache environment..."
-source activate mustache
-
-echo "Running pip install"
-pip install .
-source deactivate
 
 echo "Installation Complete."
 echo ""

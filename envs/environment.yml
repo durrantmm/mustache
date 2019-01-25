@@ -6,26 +6,114 @@ channels:
 dependencies:
   - bowtie2=2.3.4.3=py36h2d50403_0
   - emboss=6.6.0=h6debe1e_0
+  - filechunkio=1.6=py36_0
+  - ftputil=3.2=py36_0
+  - pyasn1-modules=0.0.5=py36_0
+  - pygraphviz=1.3.1=py36_0
+  - pysftp=0.2.9=py36_0
+  - rsa=3.1.4=py36_0
   - samtools=1.7=1
+  - snakemake=5.4.0=0
+  - snakemake-minimal=5.4.0=py_0
+  - urllib3=1.12=py36_0
+  - aioeasywebdav=2.2.0=py36_0
+  - aiohttp=3.5.3=py36h14c3975_1000
+  - appdirs=1.4.3=py_1
+  - asn1crypto=0.24.0=py36_1003
+  - async-timeout=3.0.1=py_1000
+  - attrs=18.2.0=py_0
+  - bcrypt=3.1.4=py36h470a237_0
+  - boto3=1.7.84=py_0
+  - botocore=1.10.84=py_0
   - ca-certificates=2018.11.29=ha4d7672_0
+  - cachetools=2.1.0=py_0
   - certifi=2018.11.29=py36_1000
+  - cffi=1.11.5=py36h9745a5d_1001
+  - chardet=3.0.4=py36_1003
+  - configargparse=0.13.0=py_1
+  - cryptography=2.3.1=py36hb7f436b_1000
   - curl=7.62.0=h74213dd_0
+  - decorator=4.3.0=py_0
+  - docutils=0.14=py36_1001
+  - dropbox=7.3.1=py36_0
+  - fribidi=1.0.5=h14c3975_1000
+  - gettext=0.19.8.1=h9745a5d_1001
+  - gitdb2=2.0.5=py_0
+  - gitpython=2.1.11=py_0
+  - glib=2.56.2=had28632_1001
+  - google-auth=1.2.1=py_0
+  - google-auth-httplib2=0.0.3=py_2
+  - google-cloud-core=0.24.1=py36_0
+  - google-cloud-storage=1.1.1=py36_0
+  - google-resumable-media=0.0.2=py36_0
+  - googleapis-common-protos=1.5.5=py_0
+  - graphite2=1.3.13=hf484d3e_1000
+  - harfbuzz=1.9.0=he243708_1001
+  - httplib2=0.12.0=py36_1000
+  - idna=2.8=py36_1000
+  - idna_ssl=1.1.0=py36_1000
+  - jinja2=2.10=py_1
+  - jmespath=0.9.3=py_1
+  - jsonschema=3.0.0a3=py36_1000
   - krb5=1.16.2=hbb41f41_0
   - libcurl=7.62.0=hbdb9355_0
+  - libgcc=7.2.0=h69d50b8_2
+  - libgfortran-ng=7.2.0=hdf63c60_3
+  - libiconv=1.15=h14c3975_1004
+  - libprotobuf=3.6.1=hdbcaa40_1000
   - libssh2=1.8.0=h5b517e9_3
+  - libxcb=1.13=h14c3975_1002
+  - markupsafe=1.1.0=py36h14c3975_1000
+  - mkl_fft=1.0.10=py36h470a237_1
+  - mkl_random=1.0.2=py36h637b7d7_2
+  - multidict=4.5.2=py36h14c3975_1000
   - ncurses=6.1=hfc679d8_1
+  - networkx=2.2=py_1
   - openssl=1.0.2p=h470a237_1
+  - pandas=0.23.4=py36h637b7d7_1000
+  - paramiko=2.4.2=py36_1000
+  - pixman=0.34.0=h14c3975_1003
+  - prettytable=0.7.2=py_3
+  - protobuf=3.6.1=py36hf484d3e_1001
+  - psutil=5.4.8=py36h14c3975_1000
+  - pthread-stubs=0.4=h14c3975_1001
+  - pyasn1=0.4.4=py_1
+  - pycparser=2.19=py_0
+  - pynacl=1.3.0=py36h14c3975_1000
+  - pyrsistent=0.14.9=py36h14c3975_1000
   - python=3.6.6=h5001a0f_3
+  - python-dateutil=2.7.5=py_0
+  - python-irodsclient=0.7.0=py_0
+  - pytz=2018.9=py_0
+  - pyyaml=3.13=py36h14c3975_1001
+  - ratelimiter=1.2.0=py36_1000
+  - requests=2.13.0=py36_0
+  - s3transfer=0.1.13=py36_1001
+  - setuptools=40.6.2=py36_0
+  - six=1.12.0=py36_1000
+  - smmap2=2.0.5=py_0
+  - typing_extensions=3.6.6=py36_1000
+  - wheel=0.32.3=py36_0
+  - wrapt=1.11.1=py36h14c3975_0
+  - xmlrunner=1.7.7=py_0
+  - xorg-libxau=1.0.8=h14c3975_1006
+  - xorg-libxdmcp=1.1.2=h14c3975_1007
+  - yaml=0.1.7=h14c3975_1001
+  - yarl=1.3.0=py36h14c3975_1000
+  - blas=1.0=mkl
   - bzip2=1.0.6=h14c3975_5
+  - cairo=1.14.12=h8948797_3
+  - datrie=0.7.1=py36h7b6447c_1
   - expat=2.2.6=he6710b0_0
   - fontconfig=2.13.0=h9420a91_0
   - freetype=2.9.1=h8a8886c_1
   - giflib=5.1.4=h14c3975_1
+  - graphviz=2.40.1=h21bd128_2
   - icu=58.2=h9c2bf20_1
+  - intel-openmp=2019.1=144
   - jpeg=9b=h024ee3a_2
   - libedit=3.1.20170329=h6b74fdf_2
   - libffi=3.2.1=hd88cf55_4
-  - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=8.2.0=hdf63c60_1
   - libgd=2.2.5=hceca4fd_3
   - libpng=1.6.35=hbc83047_0
@@ -34,12 +122,15 @@ dependencies:
   - libuuid=1.0.3=h1bed415_2
   - libwebp=1.0.1=h8e7db2f_0
   - libxml2=2.9.8=h26e45fe_1
+  - mkl=2019.1=144
+  - numpy=1.15.4=py36h7e9f1db_0
+  - numpy-base=1.15.4=py36hde5b4d6_0
+  - pango=1.42.4=h049681c_0
+  - pcre=8.42=h439df22_0
   - perl=5.26.2=h14c3975_0
   - pip=18.1=py36_0
   - readline=7.0=h7b6447c_5
-  - setuptools=40.6.2=py36_0
   - sqlite=3.25.3=h7b6447c_0
   - tk=8.6.8=hbc83047_0
-  - wheel=0.32.3=py36_0
   - xz=5.2.4=h14c3975_4
   - zlib=1.2.11=h7b6447c_3

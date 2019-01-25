@@ -13,7 +13,6 @@ setup(
     install_requires=[
         'click',
         'pygogo',
-        'snakemake',
         'pandas',
         'biopython',
         'pysam==0.13',
