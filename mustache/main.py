@@ -33,9 +33,9 @@ def cli():
 @click.option('--min_softclip_count', '-mincount', default=4, help="For a softclipped site to be considered, there must be at least this many softclipped reads at the site. default=4")
 @click.option('--min_alignment_quality', '-minq', default=20, help="For a read to be considered, it must meet this alignment quality cutoff. default=20")
 @click.option('--min_alignment_inner_length', '-minial', default=21, help="If a read is softclipped on both ends, the aligned portion must be at least this long. Ideally, set this equal to 1 + max_direct_repeat_length. default=21")
-@click.option('--min_distance_to_mate', '-mcc', default=22, help="A minimum distance to a potential nearby mate, filters out sites that have no pairs. default=22")
+@click.option('--min_distance_to_mate', '-mindist', default=22, help="A minimum distance to a potential nearby mate, filters out sites that have no pairs. default=22")
 @click.option('--min_softclip_ratio', '-minratio', default=0.15, help="For a softclipped site to be considered, the proportion of softclipped sites must not fall below this value. default=0.15")
-@click.option('--max_indel_ratio', '-maxindelratio', default=0.03, help="For a softclipped site to be considered, the proportion of small insertions/deletions at this site must not be above this value. default=0.03")
+@click.option('--max_indel_ratio', '-maxir', default=0.03, help="For a softclipped site to be considered, the proportion of small insertions/deletions at this site must not be above this value. default=0.03")
 @click.option('--min_count_consensus', '-mcc', default=2, help="When building the consensus sequence, stop building consensus if read count drops below this cutoff. default=2")
 @click.option('--min_softclip_length', '-minlen', default=8, help="For a softclipped site to be considered, there must be at least one softclipped read of this length. default=8")
 def findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, min_alignment_inner_length,
