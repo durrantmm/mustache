@@ -120,7 +120,7 @@ def inferseq_reference(pairsfile, inferseq_reference, min_perc_identity, max_int
              help_priority=6)
 @click.argument('pairsfile', type=click.Path(exists=True))
 @click.option('--min_overlap_score', '-minscore', default=10, help="The minimum overlap score to keep inferred sequence. default=10")
-@click.option('--min_overlap_perc_identity', '-min_overlap_perc_identity', default=0.9, help="The minimum overlap percent identity to keep inferred sequence. default=0.9")
+@click.option('--min_overlap_perc_identity', '-minopi', default=0.9, help="The minimum overlap percent identity to keep inferred sequence. default=0.9")
 @click.option('--output_file', '-o', default='mustache.inferseq_overlap.tsv', help="The output file to save the results. default=mustache.inferseq_overlap.tsv")
 def inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, output_file=None):
     """

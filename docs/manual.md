@@ -219,7 +219,7 @@ inference approaches are implemented and described in the following sections.
 This command infers the identity of insertions by aligning the flanks of candidate pairs to a reference genome.
 
 #### `inferseq-reference`: Input and parameters
-The `inferseq-reference` command takes a the output of the `pairsfile` command and a reference genome as input.
+The `inferseq-reference` command takes a the output of the `pairflanks` command and a reference genome as input.
 
 While *mustache* will automatically index the reference genome if it is not already indexed, we recommend that you index 
 the reference genome beforehand with the command:
@@ -230,9 +230,9 @@ Where INFERSEQ_REFERENCE is the reference genome of interest.
 
 [BWA MEM](http://bio-bwa.sourceforge.net/) should be used to generate this BAM file.
 
-You can run then run the command as
+You can then run the command as
 
-    mustache inferseq-reference PAIRFLANKS INFERSEQ_REFERENCE
+    mustache inferseq-reference PAIRSFILE INFERSEQ_REFERENCE
     
 Additional parameters include:
 
@@ -274,23 +274,160 @@ The `--keep-intermediate/--no-keep-intermediate` will keep determine whether or 
 be deleted or kept, which can be useful for debugging purposes.
 
 #### `inferseq-reference`: Description of implementation
+A schematic of how this step is implemented is shown above, but more details are given here. First, if the reference
+genome is not already bowtie2 indexed, *mustache* will index the genome. Next, it will align the individual flanks 
+to the reference genome. It will then filter the alignments according to the `min_perc_identity` parameter, and it will
+also filter alignments that are clipped to on their outer edge. It will then iterate through the sorted alignments and
+pair flanks with each other. This approach will actually take the minimum non-overlapping alignment pairs, and ignore
+all other combinations of alignments, as described in the schematic below:
+
+![alt text](img/minimum_nonoverlapping_windows.png)
+
+Next, candidate pairs will be filtered according to the `max_internal_softclip_prop` parameter, and the 
+inferred sequence size filters (`max_inferseq_size` and `min_inferseq_size`). Finally using the sum of the alignment
+scores of both flanks in each pair, we filter out all pairs that do not have the maximum alignment score. This leaves
+us with a set of final inferred sequences of equal quality.
+
 #### `inferseq-reference`: Output file format
+By default, `inferseq-reference` will write to a file named `mustache.inferseq_reference.tsv` (The name can be changed 
+with the `--output_file` parameter). The columns of this file are described as follows:
+
+1. `pair_id` - An identifier used to map the inferred sequence in this file to the candidate insertion pairs described
+in the `pairflanks` file. That is, all lines in the `mustache.inferseq_reference.tsv` with the value `20` in the 
+`pair_id` column represent an inferred sequence identified by the `inferseq_reference` command that corresponds to the
+candidate insertion pair identified in the `pairflanks` file that is labeled with `20` in the `pair_id` column.
+2. `method` - The method used to infer the sequence, which will always be `inferred_reference` when running the 
+`inferseq-reference` command.
+3. `loc` - The location of the inferred sequence as it was found in the reference genome. This is in the format
+`CONTIG:START-END` where `CONTIG` is the contig where the inferred sequence was located, `START` is the base pair
+start of the inferred sequence, and `END` is the base pair end of the inferred sequence.
+4. `inferred_seq_length` - The length of the inferred sequence.
+5. `inferred_seq` - The identity of the inferred sequence in full.
+
+This file is of value to the user, as it infers the full identity of the candidate insertions by referring to a
+reference genome. In certain situations this may be sufficient, such as when the sequenced isolate differs only
+slightly from the reference genome (like in a resequencing experiment). But if the inserted element may not exist in
+an available reference genome, alternative inference approaches may be of interest (see below).
+
+It should also be noted that the reference genome used here does not necessarily have to be the reference genome that
+the sequencing reads were aligned to.
 
 ### `inferseq-assembly`
 ![alt text](img/inferseqassembly.png)
 
-This command finds insertion sites and reconstructs the flanks of inserted sequence.
+This command infers the identity of insertions by aligning the flanks of candidate pairs to a sequence assembly of the
+isolate of interest. We recommend using [SPAdes](http://cab.spbu.ru/software/spades/)  to assemble the genome of the 
+isolate of interest.
 
 #### `inferseq-assembly`: Input and parameters
-#### `inferseq-assembly`: Description of implementation
-#### `inferseq-assembly`: Output file format
+The `inferseq-assembly` command takes as input the output of the `pairflanks` command, the BAM file of the sequencing reads
+aligned to the reference genome, an assembly file in FASTA format of the sequencing reads derived from the isolate 
+of interest, and the reference genome used when initially aligning the isolates reads. In this step, it is imperative
+that the sequence assembly comes from the isolate of interest.
 
+While mustache will automatically index the sequence assembly if it is not already indexed, we recommend that you index 
+the assembly beforehand with the command: 
+
+    bowtie2-build -o 0 -q INFERSEQ_ASSEMBLY INFERSEQ_ASSEMBLY
+
+You can then run the command as
+
+    mustache inferseq-assembly PAIRSFILE BAMFILE INFERSEQ_ASSEMBLY INFERSEQ_REFERENCE
+    
+Additional parameters include:
+
+    --min_perc_identity, -minident
+    --max_internal_softclip_prop, -maxclip
+    --max_inferseq_size, -maxsize
+    --min_inferseq_size, -minsize
+    --keep-intermediate/--no-keep-intermediate
+
+
+These additional parameters are identical in function to the parameters described in the 
+"`inferseq-reference`: Input and parameters" section above. Please refer to this section for more details. 
+
+#### `inferseq-assembly`: Description of implementation
+Details about how this step is implemented are shown in Figures a and b above. The sequence of steps is very similar to
+those described in the "`inferseq-reference`: Description of implementation" section above, with important differences. 
+Two alignments to the assembly are performed. In the first step, 25 base pairs of reference genome are appended to the 
+beginning of the flanks before alignment (See Figure a above). This allows us to determine if the insertion has 
+assembled within the expected sequence context, which gives us greater confidence that it the inferred identity of the 
+insertion is of high quality. Then the flanks are aligned without the appended context sequence to infer the identity of
+the insertion. Both of these types of inferred sequences are then reported in the output file.
+
+#### `inferseq-assembly`: Output file format
+By default, `inferseq-assembly` will write to a file named `mustache.inferseq_assembly.tsv` (The name can be changed 
+with the `--output_file` parameter). The columns of this file are the same as those found in the
+"`pairflanks`: Output file format" section above, but with the following differences:
+
+2. `method` - The method used to infer the sequence. With the `inferseq-assembly` command, this will be one of three
+different values: 1) `inferred_assembly_with_full_context`, meaning that the inserted was inferred from the sequence
+assembly with the 25 base pairs of context sequence appended on both sides, the highest quality inferred sequence. 2)
+`inferred_assembly_with_half_context` means that the sequence was inferred in context, but one side of the inserted
+element was found at the end of a contig, meaning that the sequence context of one side is still ambiguous. 3) 
+`inferred_assembly_without_context` indicates the the sequence was inferred from the assembly, but without the
+additional sequence context. This is common when the inserted sequence is a large repeated element and it cannot be
+properly assembled.
+3. `loc` - The location of the inferred sequence as it was found in the sequence assembly. This is in the format
+`CONTIG:START-END` where `CONTIG` is the contig where the inferred sequence was located, `START` is the base pair
+start of the inferred sequence, and `END` is the base pair end of the inferred sequence.
+
+This file is of value to the user, as it infers the full identity of the candidate insertions by referring to sequence
+assembly. This is of value when the sequenced isolate and the reference genome used are assumed to be quite different
+from each other. It is limited, however, by the quality of the genome assembly. Large mobile genetic elements that 
+cannot be properly assembled will be missed.
 
 ### `inferseq-overlap`
+In certain situations, the identity of the inserted sequence can be inferred by attempting to overlap the flanks.
+For example:
+
+    flank1 ----------------->
+                        ||||
+                       <-------------------flank 2
+
+In the situation depicted above, `flank1` and `flank2` overlap, and they can be merged into a single insertion.
+
+This command performs this merging operation, if possible.
 
 #### `inferseq-overlap`: Input and parameters
+The `inferseq-overlap` command takes as input only the output of the `pairflanks` command.
+
+You can run the command as
+
+    mustache inferseq-overlap PAIRSFILE
+    
+Additional parameters include:
+
+    --min_overlap_score, -minscore
+    --min_overlap_perc_identity, -minopi
+
+The parameter `min_overlap_score` determines the minimum alignment score necessary for two flanks to be merged. 
+Matched positions increase the score by 1, and mismatch positions decrease the score by 1. 
+
+The parameter `min_overlap_perc_identity` is the minimum sequence identity between the overlapping portion of the two
+flanks that is required for them to merge.
+
 #### `inferseq-overlap`: Description of implementation
+The merging procedure taken here is quite simple. Flanks are scanned across each other one base pair at a time.
+The overlapping portions are checked for matching base pairs, with matches increasing the overlap score by one, and 
+mismatches decreasing the score by one. The parameters `min_overlap_score` and `min_overlap_perc_identity` are used
+to determine if the flanks are merged into a single sequence.
+
+
 #### `inferseq-overlap`: Output file format
+By default, `inferseq-overlap` will write to a file named `mustache.inferseq_overlap.tsv` (The name can be changed 
+with the `--output_file` parameter). The columns of this file are the same as those found in the
+"`pairflanks`: Output file format" section above, but with the following differences:
+
+2. `method` - The method used to infer the sequence which will always be `inferrred_overlap` when using the 
+`inferseq-overlap` command.
+3. `loc` - The portions of flank1 and flank2 that are kept to form the final merged sequence. This is in the form
+`seq_5p:START_5p-END_5p;seq_3p:START_3p-END_3p`.
+
+This is valuable to the user primarily for filtering out insertions that are smaller in size, as this step is 
+fundamentally limited by the read length of the library. *Mustache* is not well-suited to identify smaller
+insertions, and this step can be used to filter out these small insertions so they do not interfere with downstream
+analyses.
 
 ### `inferseq-database`
 ![alt text](img/inferseqdatabase.png)
