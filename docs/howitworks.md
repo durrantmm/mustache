@@ -34,6 +34,6 @@ such as:
 2. More complicated insertions, such as insertions within insertions, are likely to be missed, especially if they 
 include repetitive elements and cannot be assembled within the expected sequence context.
 
-For more detailed information on how mustache works, see the [tutorial](tutorial.md) and the [manual](manual.md).
+For more detailed information on how *mustache* works, see the [tutorial](tutorial.md) and the [manual](manual.md).
 
 [NEXT: Install or update software](install.md)

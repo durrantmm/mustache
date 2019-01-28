@@ -49,7 +49,7 @@ performed using the commands:
     bwa mem CFT073.fna SRR3180793.nodup_R1_val_1.fq.gz SRR3180793.nodup_R2_val_2.fq.gz > SRR3180793.CFT073.sam
 
 There is a built-in command in *mustache*, called `mustache formatbam` which takes this SAM file and prepares it for 
-analysis by mustache:
+analysis by *mustache*:
 
     mustache formatbam SRR3180793.CFT073.sam SRR3180793.CFT073.bam
 
@@ -73,7 +73,7 @@ isolates available in the SRA database. A description of how this file was gener
 We present a simple tutorial designed to explain key parts of the *mustache* workflow.
 
 ### `mustache findflanks`
-Once a properly formatted BAM file is available, you can run the `findflanks` command in mustache. This command is
+Once a properly formatted BAM file is available, you can run the `findflanks` command in *mustache*. This command is
 described in greater detail [here](manual.md). You can run this command on the test dataset as:
   
     mustache findflanks SRR3180793.CFT073.bam
@@ -217,7 +217,7 @@ We hope we have made the limitations of this approach clear, and we urge you to 
 when analyzing your own data.
 
 Some additional details to keep in mind:
-* Mustache is not designed to identify small insertions. If an insertion is smaller than your library's read length,
+* *Mustache* is not designed to identify small insertions. If an insertion is smaller than your library's read length,
 we urge you to ignore them as they cannot be reliably identified. We recommend a lower size cutoff of 300 bp when
 analyzing sequences.
 * Similarly, *mustache* has not been evaluated with respect to very large insertions. The larger an insertion,

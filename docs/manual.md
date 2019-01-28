@@ -583,7 +583,7 @@ Additional parameters include:
     --threads, -t
     
 Which specifies the number of threads used to perform the local assemblies. This will increase speed at the cost of
-using additonal CPUs. This is 1 by default.
+using additional CPUs. This is 1 by default.
 
 #### `extendpairs`: Description of implementation
 In brief, `extendpairs` iterates through all of the candidate insertions, and performs local assemblies of all of the
