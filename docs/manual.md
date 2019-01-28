@@ -219,7 +219,7 @@ inference approaches are implemented and described in the following sections.
 This command infers the identity of insertions by aligning the flanks of candidate pairs to a reference genome.
 
 #### `inferseq-reference`: Input and parameters
-The `inferseq-reference` command takes a the output of the `pairflanks` command and a reference genome as input.
+The `inferseq-reference` command takes the output of the `pairflanks` command and a reference genome as input.
 
 While *mustache* will automatically index the reference genome if it is not already indexed, we recommend that you index 
 the reference genome beforehand with the command:
@@ -243,7 +243,7 @@ Additional parameters include:
     --keep-intermediate/--no-keep-intermediate
 
 
-The parameter `min_perc_identity` takes an float between 0 and 1. When aligning candidate insertion flanks to a the
+The parameter `min_perc_identity` takes an float between 0 and 1. When aligning candidate insertion flanks to the
 reference genome, it will only consider alignments that exceed this percentage identity with the reference. The default
 for this parameter is 0.95. 
 
@@ -358,7 +358,7 @@ the insertion. Both of these types of inferred sequences are then reported in th
 #### `inferseq-assembly`: Output file format
 By default, `inferseq-assembly` will write to a file named `mustache.inferseq_assembly.tsv` (The name can be changed 
 with the `--output_file` parameter). The columns of this file are the same as those found in the
-"`pairflanks`: Output file format" section above, but with the following differences:
+"`inferseq-reference`: Output file format" section above, but with the following differences:
 
 2. `method` - The method used to infer the sequence. With the `inferseq-assembly` command, this will be one of three
 different values: 1) `inferred_assembly_with_full_context`, meaning that the inserted was inferred from the sequence
@@ -417,7 +417,7 @@ to determine if the flanks are merged into a single sequence.
 #### `inferseq-overlap`: Output file format
 By default, `inferseq-overlap` will write to a file named `mustache.inferseq_overlap.tsv` (The name can be changed 
 with the `--output_file` parameter). The columns of this file are the same as those found in the
-"`pairflanks`: Output file format" section above, but with the following differences:
+"`inferseq-reference`: Output file format" section above, but with the following differences:
 
 2. `method` - The method used to infer the sequence which will always be `inferrred_overlap` when using the 
 `inferseq-overlap` command.
@@ -432,29 +432,166 @@ analyses.
 ### `inferseq-database`
 ![alt text](img/inferseqdatabase.png)
 
+This command infers the identity of insertions by aligning the flanks of candidate pairs to a database of query
+sequences. Ideally, this database is filtered to remove redundant sequences, which may dramatically reduce the amount
+of time required to run this step.
+
 #### `inferseq-database`: Input and parameters
+The `inferseq-database` command takes as input the output of the `pairflanks` command, and a FASTA file of the query
+sequences of interest.
+
+While mustache will automatically index the query sequence database if it is not already indexed, we recommend that you
+index the database beforehand with the command: 
+
+    bowtie2-build -o 0 -q INFERSEQ_DATABASE INFERSEQ_DATABASE
+
+You can then run the command as:
+
+    mustache inferseq-database PAIRSFILE INFERSEQ_DATABASE
+    
+Additional parameters include:
+
+    --min_perc_identity, -minident
+    --max_internal_softclip_prop, -maxclip
+    --max_edge_distance, -maxedgedist
+    --keep-intermediate / --no-keep-intermediate
+  
+
+The parameter `min_perc_identity` takes an float between 0 and 1. When aligning candidate insertion flanks to the
+query sequence database, it will only consider alignments that exceed this percentage identity with the reference. 
+The default for this parameter is 0.90, which is more lenient than the cutoff used in the `inferseq-reference` and
+`inferseq-assembly` commands. 
+
+The parameter `max_internal_softclip_prop` takes an float between 0 and 1. This is an additional candidate insertion
+flank alignment filter. If the aligned flanks are internally clipped by a proportion of their total length that exceeds
+this number, then the alignment is excluded. See "`inferseq-reference`: Input and parameters" for more details on how 
+this parameter works.
+
+The parameter `max_edge_distance` takes an integer. This determines how close the aligned flanks must be to the edge
+of the sequence in order to keep the alignments (See Figure d above). The default for this parameter is 10.
+
+The `--keep-intermediate/--no-keep-intermediate` will keep determine whether or not the intermediate alignment file will
+be deleted or kept, which can be useful for debugging purposes.
+
 #### `inferseq-database`: Description of implementation
+This sequence inference approach assumes that the inserted sequences of interest exist within the query database itself.
+It aligns flank pairs to this database, and determines whether or not they align to a given a sequence. Aligned flanks
+that do not meet the `min_perc_identity` cutoff are removed, and only inferred sequences where both flank pairs align
+to the edge of the sequence of interest are kept, where the aligned flanks are allowed to be within `max_edge_distance`
+base pairs of the end of the query sequence.
+
 #### `inferseq-database`: Output file format
+By default, `inferseq-database` will write to a file named `mustache.inferseq_database.tsv` (The name can be changed 
+with the `--output_file` parameter). The columns of this file are the same as those found in the
+"`inferseq-reference`: Output file format" section above, but with the following differences:
 
+2. `method` - The method used to infer the sequence which will always be `inferrred_daatabase` when using the 
+`inferseq-database` command.
 
+All sequences in the database that are matched equal matches for a given flank pair will be returned.
+
+This is a valuable approach to taken when information about the inserted elements is already known beforehand. This
+database can include several insertion sequences that are relevant to the species under study, for example. It is 
+quite sensitive, provided that read coverage is high enough (we recommend above 40x) and the inserted sequence of
+interest exists in the query database.
 
 ## Additional/ Experimental *mustache* Commands
 ### `formatbam`
+This command is intended to prepare SAM files for analysis by *mustache* as input. While this step is not strictly necessary
+under all circumstances, some features of *mustache* require it (such as the experimental `extendpairs` command). We
+recommend that all SAM/BAM files are processed using this command prior to further analysis if it is computationally
+feasible.
 
 #### `formatbam`: Input and parameters
+This command requires only the alignment file SAM/BAM of interest. This is a file thatyou wish to analyze using the
+`findflanks` command in *mustache*. You can run this command as follows:
+
+    mustache formatbam IN_SAM OUT_BAM
+    
+Where `IN_SAM` is the input SAM/BAM file of interest, and `OUT_BAM` is the name of the output file.
+
+Additional parameters include `--single-end`, which is used when the file is a single-end and not paired-end, and
+`--keep-tmp-files` which will keep intermediate files without rather than deleting them.
+    
 #### `formatbam`: Description of implementation
+This command first removes secondary alignments from the alignment file. It then formats the file for use by *mustache*,
+in particular it stores information about each reads mate so that it is immediately accessible, a step that is 
+necessary when using the experimental `extendpairs` command. It will then sort and index the BAM files.
+
 #### `formatbam`: Output file format
 
+The output of this command is just a BAM file that is ready to be analyzed by *mustache*.
+
 ### `recall`
+The `recall` command is used to collect information about potential insertion sites from a BAM file. For example,
+if you have many insertion sites of interest, you may want to determine if these sites were actually deleted in the
+reference genome of some of the isolates. This can be useful when comparing isolates to each other. This command was
+used in our own GWAS of antibiotic resistance in *E. coli* to determine if some of the insertion sites were deleted in 
+some of the isolates. This can allow you to then filter out these unreliable insertion sites.
 
 #### `recall`: Input and parameters
+The `recall` command takes as input the output of the `pairflanks` command, and the original `BAM` file of the reads
+aligned to the reference genome. The `pairflanks` output file actually only requires three columns: 
+`contig`, `pos_5p`, and `pos_3p`. The `recall` command will analyze the sites specified in these columns.
+
+This command can be executed as:
+   
+    mustache recall PAIRSFILE BAMFILE
+    
+Additional parameters include:
+
+    --min_alignment_quality, -minq
+    --min_alignment_inner_length, -minial
+    
+Which should be the same as the values used when originally running the `findflanks` command.
+By default `min_alignment_quality` is 20 and `min_alignment_inner_length` is 21.
+
 #### `recall`: Description of implementation
+
+
 #### `recall`: Output file format
+
 
 ### `extendpairs`
 
+This is an experimental command in *mustache*, so use at your own risk. This command is used to perform a local
+assembly on the candidate insertions in order to extend the lengths of the consensus flanks. This effectively
+increases the upper limit of the consensus flanks such that it is closer to the length of the library's fragment length,
+rather than the read length. This allows one to determine more information about an insertion by a more direct 
+measurement, rather than by inference.
+
+This step requires that the user install a working version of [AMOS](http://amos.sourceforge.net/wiki/index.php/AMOS) 
+sequence assembly software on their machine. This is not included in the default installation of *mustache*.
+
 #### `extendpairs`: Input and parameters
+This command requires as input the output of the `pairflanks` command, and the BAM of the read alignment to the 
+reference genome. This BAM file MUST have beem processed by the `formatbam` command. 
+The command can then be executed as:
+
+    mustache extendpairs PAIRSFILE BAMFILE
+    
+Additional parameters include:
+
+    --threads, -t
+    
+Which specifies the number of threads used to perform the local assemblies. This will increase speed at the cost of
+using additonal CPUs. This is 1 by default.
+
 #### `extendpairs`: Description of implementation
+In brief, `extendpairs` iterates through all of the candidate insertions, and performs local assemblies of all of the
+reads found at the insertion site. It is able to draw on information about reads that did not align to the reference
+genome near the insertion site, but whose read mate did align. The local assembly of these reads is then used as a 
+reference for a candidate flank alignment, and the extended sequence is determined from this alignment.
+
+
 #### `extendpairs`: Output file format
+The output of this file is the same as the output of the `pairflanks` command, with two additional columns added
+at the end:
+
+`extended_5p` is a boolean True/False column that indicates whether or not the local assembly was able to extend the
+5' flank.
+
+`extended_3p` is a boolean True/False column that indicates whether or not the local assembly was able to extend the
+3' flank.
 
 [Back to main page](../README.md)

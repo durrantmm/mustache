@@ -133,16 +133,16 @@ def inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, ou
 
 @cli.command(short_help='Infers the identity of an inserted sequence by aligning flank pairs to an database of known inserted elements.', help_priority=7)
 @click.argument('pairsfile', type=click.Path(exists=True))
-@click.argument('fasta_database', type=click.Path(exists=True))
+@click.argument('inferseq_database', type=click.Path(exists=True))
 @click.option('--min_perc_identity', '-minident', default=0.90, help="Only consider matches with a percentage identity above this threshold. default=0.90")
 @click.option('--max_internal_softclip_prop', '-maxclip', default=0.05, help="Do not consider matches with internal softclipped ends exceeding this proportion of the total read. default=0.05")
 @click.option('--max_edge_distance', '-maxedgedist', default=10, help="Reads must align within this number of bases from the edge of an element to be considered. default=10")
 @click.option('--output_file', '-o', default='mustache.inferseq_database.tsv', help="The output file to save the results. default=mustache.inferseq_database.tsv")
 @click.option('--keep-intermediate/--no-keep-intermediate', default=False, help="Keep intermediate files. default=False")
-def inferseq_database(pairsfile, fasta_database, min_perc_identity,  max_internal_softclip_prop, max_edge_distance, output_file=None, keep_intermediate=False):
+def inferseq_database(pairsfile, inferseq_database, min_perc_identity,  max_internal_softclip_prop, max_edge_distance, output_file=None, keep_intermediate=False):
     """Infers the identity of an inserted sequence by aligning flank pairs to an database of known inserted elements."""
 
-    _inferseq_database(pairsfile, fasta_database, min_perc_identity, max_internal_softclip_prop, max_edge_distance, output_file, keep_intermediate)
+    _inferseq_database(pairsfile, inferseq_database, min_perc_identity, max_internal_softclip_prop, max_edge_distance, output_file, keep_intermediate)
 
 
 @cli.command(short_help="Formats a BAM file for use with mustache. Usually not necessary, unless using the experiment extendpairs command.", help_priority=8)

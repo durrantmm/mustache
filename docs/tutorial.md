@@ -185,10 +185,9 @@ approach, provided that the database contains all of the inserted elements of in
 
 [Detailed user manual](manual.md)
 
-
 ## Next steps
 This tutorial produced a list of candidate insertions for the E. coli isolate SRR3180793 (`mustache.pairflanks.tsv`), as
-well as the inferred identity of many of the insertions using a variety of inference techniques. Of the 150 candidate 
+well as the inferred identity of many of the insertions using a variety of inference techniques. Of the 149 candidate 
 insertions identified in the `mustache.pairflanks.tsv` file, a sequence was inferred for 137 using at least one of the
 inference approaches described here. Those candidate insertions whose identity could not be inferred may include large 
 genomic inversions, or insertions that were too complicated to be properly inferred from short-read sequencing using

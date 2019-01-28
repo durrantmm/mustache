@@ -25,12 +25,12 @@ warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 
-def _inferseq_database(pairsfile, fasta_database, min_perc_identity, max_internal_softclip_prop,
+def _inferseq_database(pairsfile, inferseq_database, min_perc_identity, max_internal_softclip_prop,
                        max_edge_distance, output_file, keep_intermediate):
 
-    index_database(fasta_database)
+    index_database(inferseq_database)
 
-    database_dict = {rec.id: rec.seq for rec in SeqIO.parse(fasta_database, 'fasta')}
+    database_dict = {rec.id: rec.seq for rec in SeqIO.parse(inferseq_database, 'fasta')}
 
     tmp_dir = dirname(output_file)
 
@@ -43,7 +43,7 @@ def _inferseq_database(pairsfile, fasta_database, min_perc_identity, max_interna
     assembly_outbam = join(tmp_dir, 'mustache.inferseq_database.' + str(randint(0, 1e20)) + '.bam')
     bowtie2tools.align_fasta_to_genome(
         assembly_flanks_fasta_prefix + '.fasta',
-        fasta_database, assembly_outbam, silence=True,
+        inferseq_database, assembly_outbam, silence=True,
         additional_flags='--all --score-min G,1,5'
     )
 
