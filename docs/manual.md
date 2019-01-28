@@ -320,8 +320,8 @@ isolate of interest. We recommend using [SPAdes](http://cab.spbu.ru/software/spa
 isolate of interest.
 
 #### `inferseq-assembly`: Input and parameters
-The `inferseq-assembly` command takes as input the output of the `pairflanks` command, the BAM file of the sequencing reads
-aligned to the reference genome, an assembly file in FASTA format of the sequencing reads derived from the isolate 
+The `inferseq-assembly` command takes as input the output of the `pairflanks` command, the BAM file of the sequencing 
+reads aligned to the reference genome, an assembly file in FASTA format of the sequencing reads derived from the isolate 
 of interest, and the reference genome used when initially aligning the isolates reads. In this step, it is imperative
 that the sequence assembly comes from the isolate of interest.
 
@@ -497,10 +497,10 @@ interest exists in the query database.
 
 ## Additional/ Experimental *mustache* Commands
 ### `formatbam`
-This command is intended to prepare SAM files for analysis by *mustache* as input. While this step is not strictly necessary
-under all circumstances, some features of *mustache* require it (such as the experimental `extendpairs` command). We
-recommend that all SAM/BAM files are processed using this command prior to further analysis if it is computationally
-feasible.
+This command is intended to prepare SAM files for analysis by *mustache* as input. While this step is not strictly 
+necessary under all circumstances, some features of *mustache* require it (such as the experimental `extendpairs` 
+command). We recommend that all SAM/BAM files are processed using this command prior to further analysis if it is 
+computationally feasible.
 
 #### `formatbam`: Input and parameters
 This command requires only the alignment file SAM/BAM of interest. This is a file thatyou wish to analyze using the
@@ -548,8 +548,16 @@ By default `min_alignment_quality` is 20 and `min_alignment_inner_length` is 21.
 
 #### `recall`: Description of implementation
 
+Recall works very similarly to the findflanks algorithm, but it does not attempt to reconstruct consensus flanks.
+It's only goal is to gather read information about the sites present in the `PAIRSFILE`. This can then be used in other
+analyses.
 
 #### `recall`: Output file format
+The output format is quite similar to the output of the `findflanks` command. Each row is a specific site (note that
+it splits each pair into its individual insertion sites). It includes columns about read counts, such as
+`softclip_count_5p`, `softclip_count_3p`, `runthrough_count`, `small_insertion_count_5p`, `small_insertion_count_3p`,
+`deletion_count`, `upstream_deletion_count`, `downstream_deletion_count`, and `total_count`. See the
+section "`findflanks`: Output file format" for more details on what each of these columns means.
 
 
 ### `extendpairs`
@@ -593,5 +601,8 @@ at the end:
 
 `extended_3p` is a boolean True/False column that indicates whether or not the local assembly was able to extend the
 3' flank.
+
+
+Again, this is an experimental command, but it may be of use to the user.
 
 [Back to main page](../README.md)
