@@ -138,7 +138,7 @@ Additional parameters include:
     --min_alignment_inner_length, -minial
     --max_junction_spanning_prop, -maxjsp
 
-The parameter `max_direct_repeat_length` takes an integer. This species the maximum distance that oppositely-oriented
+The parameter `max_direct_repeat_length` takes an integer. This specifies the maximum distance that oppositely-oriented
 insertion flanks can be from each other in order to consider pairing them together. Since insertions often cause direct
 repeats at the insertion site, the location of the insertion flanks are often separated by several base pairs. 
 The default for this parameter is 20. This means that our algorithm by default will NOT identify true insertions that 
@@ -270,7 +270,7 @@ The parameter `min_inferseq_size` excludes inferred sequences that are smaller t
 this parameter is 1 base pair, but in reality *mustache* is not well suited to identify insertions that are smaller than
 the read length of the sequencing library.
 
-The `--keep-intermediate/--no-keep-intermediate` will keep determine whether or not the intermediate alignment file will
+The `--keep-intermediate/--no-keep-intermediate` will determine whether or not the intermediate alignment file will
 be deleted or kept, which can be useful for debugging purposes.
 
 #### `inferseq-reference`: Description of implementation
@@ -470,7 +470,7 @@ this parameter works.
 The parameter `max_edge_distance` takes an integer. This determines how close the aligned flanks must be to the edge
 of the sequence in order to keep the alignments (See Figure d above). The default for this parameter is 10.
 
-The `--keep-intermediate/--no-keep-intermediate` will keep determine whether or not the intermediate alignment file will
+The `--keep-intermediate/--no-keep-intermediate` will determine whether or not the intermediate alignment file will
 be deleted or kept, which can be useful for debugging purposes.
 
 #### `inferseq-database`: Description of implementation
