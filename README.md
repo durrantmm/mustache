@@ -1,4 +1,4 @@
-# *mustache* - Command-line tool to identify mobile element insertions from short-read sequencing data
+# *mustache* - Tool box to identify mobile element insertions from short-read sequencing data
 
 The command-line tool *mustache* identifies large insertions and genotypes from short-read sequencing data.
 
