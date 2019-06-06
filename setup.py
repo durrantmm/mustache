@@ -18,7 +18,8 @@ setup(
         'pysam==0.13',
         'cython',
         'jellyfish',
-        'scipy'
+        'scipy',
+        'readpy'
     ],
     zip_safe=False,
     entry_points = {

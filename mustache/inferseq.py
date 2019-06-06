@@ -64,8 +64,8 @@ class InferSequence:
 
         self.__filter_smallest_overlapping()
         self.__filter_pairs_max_internal_softclip_prop()
-        self.__filter_pairs_size()
         self.__filter_best_alignments()
+        self.__filter_pairs_size()
 
         return self.make_dataframe()
 

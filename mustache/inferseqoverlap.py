@@ -18,10 +18,11 @@ warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 
-def _inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, output_file):
+def _inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, min_inferseq_size, output_file):
 
     pairs = pd.read_csv(pairsfile, sep='\t', keep_default_na=False, na_values=[
         '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A','N/A', '#NA', 'NULL', 'NaN', '-NaN', 'nan', '-nan'])
+
     handle_empty_pairsfile(pairs, output_file)
 
     logger.info("Inferring sequences from overlap...")
@@ -29,8 +30,15 @@ def _inferseq_overlap(pairsfile, min_overlap_score, min_overlap_perc_identity, o
     method1 = make_dataframe(sequences_inferred_from_overlap, method='inferred_overlap')
 
     method1.loc[:, 'pair_id'] = list(map(str, map(int, list(method1['pair_id']))))
+    method1 = method1.query("inferred_seq_length >= @min_inferseq_size")
 
     logger.info("Writing results to file %s..." % output_file)
+
+    if pairs.shape[0] > 0:
+        sample_id = list(pairs['sample'])[0]
+        method1.insert(0, 'sample', sample_id)
+    else:
+        method1.insert(0, 'sample', None)
     method1.to_csv(output_file, sep='\t', index=False)
 
 

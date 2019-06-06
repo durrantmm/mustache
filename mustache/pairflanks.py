@@ -16,28 +16,33 @@ logger = gogo.Gogo(__name__, verbose=verbose).logger
 
 
 def _pairflanks(flanksfile, bamfile, genome, max_direct_repeat_length, min_alignment_quality,
-                min_alignment_inner_length, max_junction_spanning_prop=0.15, output_file=None):
+                min_alignment_inner_length, max_junction_spanning_prop=0.15, large_insertion_cutoff=30,
+                output_file=None):
     tmp_output_prefix = '.'.join(basename(output_file).split('.')[:-1])
 
     flanks = pd.read_csv(flanksfile, sep='\t')
+
+
     bam = pysam.AlignmentFile(bamfile, 'rb')
 
     flank_pairer = FlankPairer(flanks, bam, genome, max_direct_repeat_length, min_alignment_quality,
-                               min_alignment_inner_length, max_junction_spanning_prop,
+                               min_alignment_inner_length, max_junction_spanning_prop, large_insertion_cutoff,
                                tmp_dir=dirname(output_file), tmp_output_prefix=tmp_output_prefix)
 
     if flanks.shape[0] == 0:
         logger.info("No flanks found in the input file...")
 
         flank_pairs = flank_pairer.get_header_dataframe()
+        flank_pairs.insert(0, 'sample', None)
 
         if output_file:
             flank_pairs.to_csv(output_file, sep='\t', index=False)
         return flank_pairs
 
     else:
-
         flank_pairs = flank_pairer.run_pair_flanks()
+        sample_id = list(flanks['sample'])[0]
+        flank_pairs.insert(0, 'sample', sample_id)
 
         if output_file:
             logger.info("Saving results to file %s" % output_file)
@@ -59,6 +64,7 @@ class FlankPairer:
     ir_distance_from_end = None
 
     insertion_spanning_length = None
+    large_insertion_cutoff = None
 
     tmp_dir = None
     tmp_output_prefix = None
@@ -68,6 +74,7 @@ class FlankPairer:
 
     def __init__(self, flanks, bam, genome, max_direct_repeat_length,
                  min_alignment_quality, min_alignment_inner_length, max_junction_spanning_prop,
+                 large_insertion_cutoff,
                  truncated_flank_length=40, ir_distance_from_end=15, insertion_spanning_length=10,
                  tmp_dir='/tmp', tmp_output_prefix='mustache'):
         self.flanks = flanks
@@ -77,6 +84,7 @@ class FlankPairer:
         self.min_alignment_quality = min_alignment_quality
         self.min_alignment_inner_length = min_alignment_inner_length
         self.max_junction_spanning_prop = max_junction_spanning_prop
+        self.large_insertion_cutoff = large_insertion_cutoff
         self.truncated_flank_length = truncated_flank_length
         self.ir_distance_from_end = ir_distance_from_end
         self.insertion_spanning_length = insertion_spanning_length
@@ -370,8 +378,10 @@ class FlankPairer:
 
             for read in reads:
 
-                if read.reference_start < pos_3p - self.insertion_spanning_length and \
-                    read.reference_end > pos_5p + self.insertion_spanning_length + 1:
+                if (read.reference_start < pos_3p - self.insertion_spanning_length and
+                    read.reference_end > pos_5p + self.insertion_spanning_length + 1 and
+                    not self.contains_large_insertion(read, pos_3p, pos_5p)):
+
                     spanning_read_names.add(read.query_name)
 
             spanning_reads.append(len(spanning_read_names))
@@ -419,3 +429,50 @@ class FlankPairer:
         pairs = pairs[self.get_header_list()]
 
         return pairs
+
+
+    def contains_large_insertion(self, read, pos_3p, pos_5p):
+
+
+        large_insert_3p = self.identify_large_insertion_at_site(pos_3p, read)
+        large_insert_5p = self.identify_large_insertion_at_site(pos_5p, read)
+
+        if large_insert_3p or large_insert_5p:
+            return True
+        else:
+            return False
+
+
+    def identify_large_insertion_at_site(self, position, read):
+
+        blocks = read.get_blocks()
+
+        if len(blocks) > 1:
+            for i in range(len(blocks)-1):
+                block1, block2 = blocks[i], blocks[i+1]
+                if block1[1] == block2[0]:
+
+                    if position == block1[1]-1:
+                        insertion_length = pysamtools.get_insertion_length(position, read)
+                        if insertion_length >= self.large_insertion_cutoff:
+                            return True
+                        else:
+                            return False
+                    elif position == block2[0]:
+                        insertion_length = pysamtools.get_insertion_length(position, read, reverse=True)
+                        if insertion_length >= self.large_insertion_cutoff:
+                            return True
+                        else:
+                            return False
+                else:
+                    return False
+
+        return False
+
+
+    def block_overlaps_site(self, block, position):
+
+        if block[0] <= position and block[1] > position:
+            return True
+        else:
+            return False

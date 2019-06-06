@@ -162,20 +162,48 @@ def count_softclipped_reads(bam, contig, site, min_qual=20, min_alignment_inner_
 
         return count
 
+
 def get_query_qualities_ascii(read, bam):
     return read.tostring(bam).split('\t')[10]
+
 
 def query_qualities_to_phred(quals):
     return [ord(q)-33 for q in quals]
 
+
 def get_perc_identity(read):
     total = read.query_alignment_length
-    matches = len(read.get_aligned_pairs(matches_only=True))
-    identity = matches/total
-    return(identity)
+    identity = (total - read.get_tag('NM')) / total
+    return identity
+
 
 def get_bam_contig_dict(bam_file):
     contig_dict = {}
     for contig in bam_file.header['SQ']:
         contig_dict[contig['SN']] = contig['LN']
     return contig_dict
+
+def get_insertion_length(position, read, reverse=False):
+    refpos = read.get_reference_positions(full_length=True)
+
+    insert_length = 0
+
+    if not reverse:
+
+        for pos in refpos[refpos.index(position)+1:]:
+
+            if pos is not None:
+                break
+            else:
+                insert_length += 1
+
+    else:
+        refpos = refpos[::-1]
+        for pos in refpos[refpos.index(position)+1:]:
+
+            if pos is not None:
+                break
+            else:
+                insert_length += 1
+
+    return insert_length

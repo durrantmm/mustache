@@ -21,6 +21,8 @@ def _inferseq_reference(pairsfile, inferseq_reference, min_perc_identity, max_in
 
     pairs = pd.read_csv(pairsfile, sep='\t', keep_default_na=False, na_values=[
         '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A', 'N/A', '#NA', 'NULL', 'NaN', '-NaN', 'nan', '-nan'])
+
+
     handle_empty_pairsfile(pairs, output_file)
 
     index_genome(inferseq_reference)
@@ -35,6 +37,12 @@ def _inferseq_reference(pairsfile, inferseq_reference, min_perc_identity, max_in
 
     logger.info("Inferred sequences for %d pairs..." % len(set(list(inferred_sequences['pair_id']))))
     logger.info("Writing results to file %s..." % output_file)
+    if pairs.shape[0] > 0:
+        sample_id = list(pairs['sample'])[0]
+        inferred_sequences.insert(0, 'sample', sample_id)
+    else:
+        inferred_sequences.insert(0, 'sample', None)
+
     inferred_sequences.to_csv(output_file, sep='\t', index=False)
 
 

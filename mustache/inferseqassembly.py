@@ -32,6 +32,7 @@ def _inferseq_assembly(pairsfile, bamfile, inferseq_assembly, inferseq_reference
 
     pairs = pd.read_csv(pairsfile, sep='\t', keep_default_na=False, na_values=[
         '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A', 'N/A', '#NA', 'NULL', 'NaN', '-NaN', 'nan', '-nan'])
+
     handle_empty_pairsfile(pairs, output_file)
 
     index_genome(inferseq_assembly)
@@ -60,9 +61,13 @@ def _inferseq_assembly(pairsfile, bamfile, inferseq_assembly, inferseq_reference
 
     logger.info("Inferred sequences for %d pairs..." % len(set(list(inferred_sequences['pair_id']))))
     logger.info("Writing results to file %s..." % output_file)
+    if pairs.shape[0] > 0:
+        sample_id = list(pairs['sample'])[0]
+        inferred_sequences.insert(0, 'sample', sample_id)
+    else:
+        inferred_sequences.insert(0, 'sample', None)
+
     inferred_sequences.to_csv(output_file, sep='\t', index=False)
-
-
 
 
 class InferSequenceContext(InferSequence):
@@ -82,7 +87,7 @@ class InferSequenceContext(InferSequence):
         self.context_width = context_width
         self.ref_genome_dict = {rec.id: rec.seq for rec in SeqIO.parse(ref_genome_fasta, 'fasta')}
 
-        self.all_aligned_pairs = defaultdict(AlignedPairsContext)
+        self.all_aligned_pairs = defaultdict(lambda: AlignedPairsContext(self.context_width))
 
 
     def get_flanks(self):
@@ -206,8 +211,28 @@ class AlignedPairsContext(AlignedPairs):
 
     context_width = None
 
-    def __init__(self):
+
+    def __init__(self, context_width):
         AlignedPairs.__init__(self)
+        self.context_width = context_width
+
+
+    def add_read(self, read):
+
+        if read.is_reverse:
+            if read.query_name.split('_')[-1] == '1':
+                self.reverse_reads_mate1.append(read)
+                self.reverse_reads_mate1_positions[read.reference_name][read.reference_end-self.context_width] = read
+            else:
+                self.reverse_reads_mate2.append(read)
+                self.reverse_reads_mate2_positions[read.reference_name][read.reference_end-self.context_width] = read
+        else:
+            if read.query_name.split('_')[-1] == '1':
+                self.forward_reads_mate1.append(read)
+                self.forward_reads_mate1_positions[read.reference_name][read.reference_start+self.context_width] = read
+            else:
+                self.forward_reads_mate2.append(read)
+                self.forward_reads_mate2_positions[read.reference_name][read.reference_start+self.context_width] = read
 
 
     def filter_pairs_max_internal_softclip_prop(self, max_internal_softclip_prop):
@@ -233,6 +258,42 @@ class AlignedPairsContext(AlignedPairs):
             keep_pairs.append(p)
 
         self.pairs = keep_pairs
+
+
+    def get_closest_reverse_read(self, read):
+
+        closest_reverse_read = None
+        if read.query_name.split('_')[-1] == '1':
+            positions = sorted(list(self.reverse_reads_mate2_positions[read.reference_name].keys()))
+            closest_pos = misc.takeClosestLarger(positions, read.reference_start+self.context_width)
+            if closest_pos is not None:
+                closest_reverse_read = self.reverse_reads_mate2_positions[read.reference_name][closest_pos]
+        else:
+            positions = sorted(list(self.reverse_reads_mate1_positions[read.reference_name].keys()))
+            closest_pos = misc.takeClosestLarger(positions, read.reference_start+self.context_width)
+            if closest_pos is not None:
+                closest_reverse_read = self.reverse_reads_mate1_positions[read.reference_name][closest_pos]
+
+        print(read.query_name)
+        return closest_reverse_read
+
+
+    def get_closest_forward_read(self, read):
+
+        closest_forward_read = None
+        if read.query_name.split('_')[-1] == '1':
+            positions = sorted(list(self.forward_reads_mate2_positions[read.reference_name].keys()))
+            closest_pos = misc.takeClosestSmaller(positions, read.reference_end-self.context_width)
+            if closest_pos is not None:
+                closest_forward_read = self.forward_reads_mate2_positions[read.reference_name][closest_pos]
+        else:
+            positions = sorted(list(self.forward_reads_mate1_positions[read.reference_name].keys()))
+            closest_pos = misc.takeClosestSmaller(positions, read.reference_end-self.context_width)
+            if closest_pos is not None:
+                closest_forward_read = self.forward_reads_mate1_positions[read.reference_name][closest_pos]
+
+        return closest_forward_read
+
 
 
 def get_inferred_sequences(pairs, genome_dict, add_softclipped_bases=False):
@@ -283,6 +344,7 @@ def get_inferred_sequences(pairs, genome_dict, add_softclipped_bases=False):
 
     return inferred_sequences
 
+
 def initialize_sequence_context(target_region, expanded_start, expanded_end):
     target_region_reads = defaultdict(lambda: defaultdict(int))
     i = 0
@@ -290,7 +352,6 @@ def initialize_sequence_context(target_region, expanded_start, expanded_end):
         target_region_reads[pos][target_region[i]] += 1
         i += 1
     return target_region_reads
-
 
 
 def index_genome(inferseq_assembly):

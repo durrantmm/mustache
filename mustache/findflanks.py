@@ -7,6 +7,7 @@ from jellyfish import levenshtein_distance
 import itertools
 from scipy.sparse.csgraph import connected_components
 import numpy as np
+from tqdm import tqdm
 
 import pygogo as gogo
 verbose = True
@@ -15,7 +16,8 @@ logger = gogo.Gogo(__name__, verbose=False).logger
 
 
 def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_quality, min_alignment_inner_length,
-                min_distance_to_mate, min_softclip_ratio, max_indel_ratio, min_count_consensus, output_file=None):
+                min_distance_to_mate, min_softclip_ratio, max_indel_ratio, large_insertion_cutoff,
+                min_count_consensus, sample_id, output_file=None):
 
     bam = pysam.AlignmentFile(bamfile, 'rb')
 
@@ -28,6 +30,7 @@ def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_
         min_distance_to_mate=min_distance_to_mate,
         min_softclip_ratio=min_softclip_ratio,
         max_indel_ratio=max_indel_ratio,
+        large_insertion_cutoff=large_insertion_cutoff,
         min_count_consensus=min_count_consensus
     )
 
@@ -41,16 +44,17 @@ def _findflanks(bamfile, min_softclip_length, min_softclip_count, min_alignment_
     softclip_parser.make_consensus_sequences()
     softclip_parser.filter_consensus_sequences_minlength()
     softclip_parser.filter_consensus_sequences_mincount()
+    softclip_parser.filter_multiple_consensus_sequences()
 
     softclip_parser.filter_softclips_mindistance()
 
     final_df = softclip_parser.make_dataframe()
-    final_df.index.names = ['flank_id']
-    final_df.index = final_df.index + 1
+    final_df.insert(0, 'flank_id', list(final_df.index+1))
+    final_df.insert(0, 'sample', sample_id)
 
     if output_file:
         logger.info("Saving results to file %s" % output_file)
-        final_df.to_csv(output_file, sep='\t')
+        final_df.to_csv(output_file, sep='\t', index=False)
 
     return final_df
 
@@ -69,12 +73,14 @@ class SoftclipParser:
     min_distance_to_mate = None
     min_softclip_ratio = None
     max_indel_ratio = None
+    large_insertion_cutoff = None
     min_count_consensus = None
 
 
     def __init__(self, bam, verbose=True, min_alignment_quality=20, min_alignment_inner_length=21,
                  min_softclip_length=4, min_softclip_count=4, min_distance_to_mate=22,
-                 min_softclip_ratio=0.15, max_indel_ratio=0.03, min_count_consensus=2):
+                 min_softclip_ratio=0.15, max_indel_ratio=0.03, large_insertion_cutoff=30,
+                 min_count_consensus=2):
         self.verbose = verbose
         self.bam = bam
         self.contig_lengths = pysamtools.get_bam_contig_dict(bam)
@@ -87,6 +93,7 @@ class SoftclipParser:
         self.min_distance_to_mate = min_distance_to_mate
         self.min_softclip_ratio = min_softclip_ratio
         self.max_indel_ratio = max_indel_ratio
+        self.large_insertion_cutoff = large_insertion_cutoff
         self.min_count_consensus = min_count_consensus
 
 
@@ -317,28 +324,26 @@ class SoftclipParser:
 
     def filter_multiple_consensus_sequences(self):
 
-        filtered_softclipped_sites = defaultdict(lambda: defaultdict(SoftclipSite))
-
         for contig in self.softclipped_sites:
             for pos in self.softclipped_sites[contig]:
                 softclip_site = self.softclipped_sites[contig][pos]
 
-
                 if len(softclip_site.consensus_sequences_5p) > 1:
-                    softclip_site.keep_softclips_5p = False
+                    best_consensus = self.get_best_consensus_sequence(softclip_site.consensus_sequences_5p)
+                    softclip_site.consensus_sequences_5p = best_consensus
 
                 if len(softclip_site.consensus_sequences_3p) > 1:
-                    softclip_site.keep_softclips_3p = False
-
-                if softclip_site.keep_softclips_5p or softclip_site.keep_softclips_3p:
-                    filtered_softclipped_sites[contig][pos] = softclip_site
-
-        self.softclipped_sites = filtered_softclipped_sites
+                    best_consensus = self.get_best_consensus_sequence(softclip_site.consensus_sequences_3p)
+                    softclip_site.consensus_sequences_3p = best_consensus
 
         if verbose:
-            logger.info("After filtering out sites with multiple consensus sequences, %d sites remain." % (
-                self.count_softclips())
-                        )
+            logger.info("After selecting the best consensus sequence at each site, %d flank sequences remain." % (
+                self.count_consensus_seqs()
+            ))
+
+
+    def get_best_consensus_sequence(self, consensus_seqs):
+        return [list(sorted(consensus_seqs, key=lambda x: (x[0], len(x[1]))))[-1]]
 
 
     def parse_unclipped_read_info(self):
@@ -346,32 +351,43 @@ class SoftclipParser:
             logger.info("Getting unclipped read information near softclipped sites...")
             pass
 
-        for contig in self.softclipped_sites:
-            for pos in self.softclipped_sites[contig]:
+        pbar_contigs = tqdm(self.softclipped_sites, desc='Contigs', leave=False)
+
+        for contig in pbar_contigs:
+
+            pbar_contigs.set_description("Contig %s" % contig)
+
+            pbar_positions = tqdm(self.softclipped_sites[contig], desc='Position', leave=False)
+            for pos in pbar_positions:
+
+                pbar_positions.set_description("Position %d" % pos)
 
                 softclip_site = self.softclipped_sites[contig][pos]
 
                 reads_at_site = self.get_reads_at_site(contig, pos)
 
-                runthrough_reads, insertion_5p_reads, insertion_3p_reads, deletion_reads = \
+                runthrough_reads, small_insertion_5p_reads, small_insertion_3p_reads, \
+                large_insertion_5p_reads, large_insertion_3p_reads, deletion_reads = \
                     self.get_unclipped_read_info_at_site(contig, pos, reads_at_site)
 
                 softclip_site.add_runthrough_reads(runthrough_reads)
-                softclip_site.add_insertion_5p_reads(insertion_5p_reads)
-                softclip_site.add_insertion_3p_reads(insertion_3p_reads)
+                softclip_site.add_small_insertion_5p_reads(small_insertion_5p_reads)
+                softclip_site.add_small_insertion_3p_reads(small_insertion_3p_reads)
+                softclip_site.add_large_insertion_5p_reads(large_insertion_5p_reads)
+                softclip_site.add_large_insertion_3p_reads(large_insertion_3p_reads)
                 softclip_site.add_deletion_reads(deletion_reads)
 
-                upstream_runthrough_reads, upstream_insertion_5p_reads, upstream_insertion_3p_reads, upstream_deletion_reads = None, None, None, None
-                downstream_runthrough_reads, downstream_insertion_5p_reads, downstream_insertion_3p_reads, downstream_deletion_reads = None, None, None, None
-
+                upstream_deletion_reads, downstream_deletion_reads = None, None
 
                 if pos - 1 >= 0:
-                    upstream_runthrough_reads, upstream_insertion_5p_reads, upstream_insertion_3p_reads, upstream_deletion_reads = \
-                        self.get_unclipped_read_info_at_site(contig, pos - 1, reads_at_site)
+                    upstream_deletion_reads = self.get_unclipped_read_info_at_site(
+                        contig, pos - 1, reads_at_site, deletions_only=True
+                    )
 
                 if pos + 1 < self.contig_lengths[contig]:
-                    downstream_runthrough_reads, downstream_insertion_5p_reads, downstream_insertion_3p_reads, downstream_deletion_reads = \
-                        self.get_unclipped_read_info_at_site(contig, pos + 1, reads_at_site)
+                    downstream_deletion_reads = self.get_unclipped_read_info_at_site(
+                        contig, pos + 1, reads_at_site, deletions_only=True
+                    )
 
                 if upstream_deletion_reads:
                     softclip_site.add_upstream_deletion_reads(upstream_deletion_reads)
@@ -399,11 +415,13 @@ class SoftclipParser:
         return reads
 
 
-    def get_unclipped_read_info_at_site(self, contig, pos, reads):
+    def get_unclipped_read_info_at_site(self, contig, pos, reads, deletions_only=False):
 
         runthrough_reads = set()
-        insertion_5p_reads = set()
-        insertion_3p_reads = set()
+        small_insertion_5p_reads = set()
+        small_insertion_3p_reads = set()
+        large_insertion_5p_reads = set()
+        large_insertion_3p_reads = set()
         deletion_reads = set()
 
         for read in reads:
@@ -411,26 +429,38 @@ class SoftclipParser:
             if sctools.is_softclipped_lenient_at_site(read, contig, pos):
                 continue
 
-            processed_read = self.process_aligned_blocks_at_site(pos, read.get_blocks())
+            processed_read = self.process_aligned_blocks_at_site(pos, read, deletions_only)
             if processed_read is None:
                 continue
             elif processed_read == 'runthrough':
                 runthrough_reads.add(read.query_name)
-            elif processed_read == 'insertion_5p':
-                insertion_5p_reads.add(read.query_name)
-            elif processed_read == 'insertion_3p':
-                insertion_3p_reads.add(read.query_name)
+            elif processed_read == 'small_insertion_5p':
+                small_insertion_5p_reads.add(read.query_name)
+            elif processed_read == 'small_insertion_3p':
+                small_insertion_3p_reads.add(read.query_name)
+            elif processed_read == 'large_insertion_5p':
+                large_insertion_5p_reads.add(read.query_name)
+            elif processed_read == 'large_insertion_3p':
+                large_insertion_3p_reads.add(read.query_name)
             else:
                 deletion_reads.add(read.query_name)
 
-        return runthrough_reads, insertion_5p_reads, insertion_3p_reads, deletion_reads
+        if deletions_only:
+            return deletion_reads
+        else:
+            return runthrough_reads, small_insertion_5p_reads, small_insertion_3p_reads, \
+                   large_insertion_5p_reads, large_insertion_3p_reads, deletion_reads
 
 
-    def process_aligned_blocks_at_site(self, position, blocks):
+    def process_aligned_blocks_at_site(self, position, read, deletions_only):
+
+        blocks = read.get_blocks()
 
         runthrough = False
-        insertion_5p = False
-        insertion_3p = False
+        small_insertion_5p = False
+        small_insertion_3p = False
+        large_insertion_5p = False
+        large_insertion_3p = False
         deletion = False
 
         for b in blocks:
@@ -443,18 +473,34 @@ class SoftclipParser:
                 block1, block2 = blocks[i], blocks[i+1]
                 if block1[1] == block2[0]:
 
+                    if deletions_only:
+                        continue
+
                     if position == block1[1]-1:
-                        insertion_3p = True
+                        insertion_length = pysamtools.get_insertion_length(position, read)
+                        if insertion_length >= self.large_insertion_cutoff:
+                            large_insertion_3p = True
+                        else:
+                            small_insertion_3p = True
                     elif position == block2[0]:
-                        insertion_5p = True
+                        insertion_length = pysamtools.get_insertion_length(position, read, reverse=True)
+                        if insertion_length >= self.large_insertion_cutoff:
+                            large_insertion_5p = True
+                        else:
+                            small_insertion_5p = True
                 else:
                     deletion_range = (block1[1], block2[0])
                     if self.block_overlaps_site(deletion_range, position):
                         deletion = True
-        if insertion_5p:
-            return 'insertion_5p'
-        elif insertion_3p:
-            return 'insertion_3p'
+
+        if small_insertion_5p:
+            return 'small_insertion_5p'
+        elif small_insertion_3p:
+            return 'small_insertion_3p'
+        elif large_insertion_5p:
+            return 'large_insertion_5p'
+        elif large_insertion_3p:
+            return 'large_insertion_3p'
         elif deletion:
             return 'deletion'
         elif runthrough:
@@ -585,7 +631,8 @@ class SoftclipParser:
     def make_dataframe(self):
 
         column_names = ['contig', 'pos', 'orient', 'softclip_count_5p', 'softclip_count_3p', 'runthrough_count',
-                        'small_insertion_count_5p', 'small_insertion_count_3p', 'deletion_count',
+                        'small_insertion_count_5p', 'small_insertion_count_3p',
+                        'large_insertion_count_5p', 'large_insertion_count_3p', 'deletion_count',
                         'upstream_deletion_count', 'downstream_deletion_count', 'total_count',
                         'consensus_softclip_count', 'consensus_seq']
 
@@ -602,7 +649,8 @@ class SoftclipParser:
 
                         outdata[len(outdata)] = [
                             contig, pos, '5p', site.get_softclip_5p_count(), site.get_softclip_3p_count(),
-                            site.get_runthrough_count(), site.get_insertion_5p_count(), site.get_insertion_3p_count(),
+                            site.get_runthrough_count(), site.get_small_insertion_5p_count(), site.get_small_insertion_3p_count(),
+                            site.get_large_insertion_5p_count(), site.get_large_insertion_3p_count(),
                             site.get_deletion_count(), site.get_upstream_deletion_count(), site.get_downstream_deletion_count(),
                             site.get_total_count(), consensus_sequence[0], consensus_sequence[1]
                         ]
@@ -611,7 +659,8 @@ class SoftclipParser:
                     for consensus_sequence in site.consensus_sequences_3p:
                         outdata[len(outdata)] = [
                             contig, pos, '3p', site.get_softclip_5p_count(), site.get_softclip_3p_count(),
-                            site.get_runthrough_count(), site.get_insertion_5p_count(), site.get_insertion_3p_count(),
+                            site.get_runthrough_count(), site.get_small_insertion_5p_count(), site.get_small_insertion_3p_count(),
+                            site.get_large_insertion_5p_count(), site.get_large_insertion_3p_count(),
                             site.get_deletion_count(), site.get_upstream_deletion_count(), site.get_downstream_deletion_count(),
                             site.get_total_count(), consensus_sequence[0], consensus_sequence[1]
                         ]
@@ -624,7 +673,8 @@ class SoftclipParser:
     def print_sites(self):
 
         print('contig\tpos\ttotal\trunthrough_count\tsoftclip_5p_count\tsoftclip_3p_count'
-              '\tinsertions_5p_count\tinsertions_3p_count\tdeletion_count', file=sys.stderr)
+              '\tsmall_insertions_5p_count\tsmall_insertions_3p_count\t'
+              'large_insertions_5p_count\tlarge_insertions_3p_count\tdeletion_count', file=sys.stderr)
         for contig in self.softclipped_sites:
             for pos in self.softclipped_sites[contig]:
                 site = self.softclipped_sites[contig][pos]
@@ -659,8 +709,10 @@ class SoftclipSite:
         self.meets_minlength_5p = False
         self.meets_minlength_3p = False
 
-        self.insertion_5p_reads = set()
-        self.insertion_3p_reads = set()
+        self.small_insertion_5p_reads = set()
+        self.small_insertion_3p_reads = set()
+        self.large_insertion_5p_reads = set()
+        self.large_insertion_3p_reads = set()
         self.runthrough_reads = set()
         self.deletion_reads = set()
         self.upstream_deletion_reads = set()
@@ -698,17 +750,29 @@ class SoftclipSite:
     def add_runthrough_reads(self, reads):
         self.runthrough_reads.update(reads)
 
-    def add_insertion_5p(self, read):
-        self.insertion_5p_reads.add(read.query_name)
+    def add_small_insertion_5p(self, read):
+        self.small_insertion_5p_reads.add(read.query_name)
 
-    def add_insertion_5p_reads(self, reads):
-        self.insertion_5p_reads.update(reads)
+    def add_small_insertion_5p_reads(self, reads):
+        self.small_insertion_5p_reads.update(reads)
 
-    def add_insertion_3p(self, read):
-        self.insertion_3p_reads.add(read.query_name)
+    def add_large_insertion_5p(self, read):
+        self.large_insertion_5p_reads.add(read.query_name)
 
-    def add_insertion_3p_reads(self, reads):
-        self.insertion_3p_reads.update(reads)
+    def add_large_insertion_5p_reads(self, reads):
+        self.large_insertion_5p_reads.update(reads)
+
+    def add_small_insertion_3p(self, read):
+        self.small_insertion_3p_reads.add(read.query_name)
+
+    def add_small_insertion_3p_reads(self, reads):
+        self.small_insertion_3p_reads.update(reads)
+
+    def add_large_insertion_3p(self, read):
+        self.large_nsertion_3p_reads.add(read.query_name)
+
+    def add_large_insertion_3p_reads(self, reads):
+        self.large_insertion_3p_reads.update(reads)
 
     def add_deletion(self, read):
         self.deletion_reads.add(read.query_name)
@@ -723,8 +787,11 @@ class SoftclipSite:
         self.downstream_deletion_reads.update(reads)
 
     def get_total_count(self):
+
         total_count = self.get_softclip_5p_count() + self.get_softclip_3p_count() + self.get_runthrough_count() + \
-            self.get_insertion_5p_count()   + self.get_insertion_3p_count() + self.get_deletion_count()
+            self.get_small_insertion_5p_count()   + self.get_small_insertion_3p_count() + \
+            self.get_large_insertion_5p_count() + self.get_large_insertion_3p_count() + self.get_deletion_count()
+
         return total_count
 
     def get_softclip_5p_count(self):
@@ -736,11 +803,17 @@ class SoftclipSite:
     def get_runthrough_count(self):
         return len(self.runthrough_reads)
 
-    def get_insertion_5p_count(self):
-        return len(self.insertion_5p_reads)
+    def get_small_insertion_5p_count(self):
+        return len(self.small_insertion_5p_reads)
 
-    def get_insertion_3p_count(self):
-        return len(self.insertion_3p_reads)
+    def get_small_insertion_3p_count(self):
+        return len(self.small_insertion_3p_reads)
+
+    def get_large_insertion_5p_count(self):
+        return len(self.large_insertion_5p_reads)
+
+    def get_large_insertion_3p_count(self):
+        return len(self.large_insertion_3p_reads)
 
     def get_deletion_count(self):
         return len(self.deletion_reads)
@@ -752,10 +825,12 @@ class SoftclipSite:
         return len(self.downstream_deletion_reads)
 
     def get_softclip_ratio_5p(self):
-        return self.get_softclip_5p_count() / self.get_total_count()
+        return (self.get_softclip_5p_count() + self.get_large_insertion_5p_count() +
+                self.get_large_insertion_3p_count()) / self.get_total_count()
 
     def get_softclip_ratio_3p(self):
-        return self.get_softclip_3p_count() / self.get_total_count()
+        return (self.get_softclip_3p_count() + self.get_large_insertion_5p_count() +
+                self.get_large_insertion_3p_count()) / self.get_total_count()
 
     def get_upstream_deletion_ratio(self):
         return self.get_upstream_deletion_count() / self.get_total_count()
@@ -764,17 +839,21 @@ class SoftclipSite:
         return self.get_downstream_deletion_count() / self.get_total_count()
 
     def get_indel_ratio_5p(self):
-        return (self.get_insertion_5p_count() + self.get_deletion_count()) / self.get_total_count()
+        return (self.get_small_insertion_5p_count() + self.get_deletion_count()) / self.get_total_count()
 
     def get_indel_ratio_3p(self):
-        return (self.get_insertion_3p_count() + self.get_deletion_count()) / self.get_total_count()
+        return (self.get_small_insertion_3p_count() + self.get_deletion_count()) / self.get_total_count()
 
     def __str__(self):
         outstring = '{total}\t{runthrough_count}\t{softclip_5p_count}\t{softclip_3p_count}' \
-                    '\t{insertions_5p_count}\t{insertions_3p_count}\t{deletion_count}'.format(
+                    '\t{small_insertions_5p_count}\t{small_insertions_3p_count}\t' \
+                    '{large_insertions_5p_count}\t{large_insertions_3p_count}\t{deletion_count}'.format(
             total=self.get_total_count(), runthrough_count=self.get_runthrough_count(),
             softclip_5p_count=self.get_softclip_5p_count(), softclip_3p_count=self.get_softclip_3p_count(),
-            insertions_5p_count=self.get_insertion_5p_count(), insertions_3p_count=self.get_insertion_3p_count(),
+            small_insertions_5p_count=self.get_small_insertion_5p_count(),
+            small_insertions_3p_count=self.get_small_insertion_3p_count(),
+            large_insertions_5p_count=self.get_large_insertion_5p_count(),
+            large_insertions_3p_count=self.get_large_insertion_3p_count(),
             deletion_count=self.get_deletion_count())
 
         return outstring
@@ -893,14 +972,6 @@ class SoftclipConsensus:
                     sys.exit()
 
 
-            #print(read1_qualities)
-            #print(read2_qualities)
-            #print(outquals)
-            #print(read1_clipped_seq)
-            #print(read2_clipped_seq)
-            #print(outseq)
-            #print()
-
             return outseq, outquals
         else:
             print("READ NUMBER ERROR - ZERO OR MORE THAN TWO READS ASSOCIATED WITH QUERY NAME")
@@ -949,13 +1020,6 @@ class SoftclipConsensus:
                     print('ERROR: YOU MISSED SOMETHING')
                     sys.exit()
 
-            #print(read1_qualities)
-            #print(read2_qualities)
-            #print(outquals)
-            #print(read1_clipped_seq)
-            #print(read2_clipped_seq)
-            #print(outseq)
-            #print()
 
             return outseq, outquals
         else:

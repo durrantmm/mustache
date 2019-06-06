@@ -36,6 +36,7 @@ def _inferseq_database(pairsfile, inferseq_database, min_perc_identity, max_inte
 
     pairs = pd.read_csv(pairsfile, sep='\t', keep_default_na=False, na_values=[
         '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A','N/A', '#NA', 'NULL', 'NaN', '-NaN', 'nan', '-nan'])
+
     handle_empty_pairsfile(pairs, output_file)
 
     logger.info("Aligning pairs to database...")
@@ -67,6 +68,13 @@ def _inferseq_database(pairsfile, inferseq_database, min_perc_identity, max_inte
 
     if not output_file:
         output_file = 'mustache.inferseq_database.tsv'
+
+    if pairs.shape[0] > 0:
+        sample_id = list(pairs['sample'])[0]
+        all_inferred_results.insert(0, 'sample', sample_id)
+    else:
+        all_inferred_results.insert(0, 'sample', None)
+
     all_inferred_results.to_csv(output_file, sep='\t', index=False)
 
 
